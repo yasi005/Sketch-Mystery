@@ -53,9 +53,11 @@ Nothing is masked. Nothing is cheated with a clip path.
 3. On white ground the overlay disappears; on dark ink it reads razor-sharp  
 4. A coarse coverage grid samples painted cells to drive **REVEALED %**
 
-The brush itself is a circle stamp with grain around the rim. Width ramps with stroke
-distance (and real stylus pressure when you have it). Roughness grows as the mark widens —
-smooth lead-in, rugged body.
+The brush is a chain of discs filled with a tiled "starlight ink" texture — matte
+pigment, lithographic noise, risograph grit, pinprick stars. A gooey SVG filter (blur →
+alpha threshold → source back on top) fuses overlapping arcs into crisp-edged metaballs.
+Width ramps with stroke distance (and real stylus pressure when you have it) and swells
+gently along the way, so the ink beads and puddles.
 
 ---
 
@@ -95,7 +97,8 @@ Open **[localhost:3000](http://localhost:3000)** and draw when you are ready.
 app/
 ├── components/
 │   ├── BrushCanvas.tsx   # ink, dock, telemetry, pointer input
-│   └── HelloDemo.tsx     # cursive hello — draw, glint, dissolve
+│   ├── inkTile.ts        # starlight ink texture tile
+│   └── HelloDemo.tsx     # cursive hello — white cut through an ink puddle
 ├── globals.css
 ├── layout.tsx
 └── page.tsx

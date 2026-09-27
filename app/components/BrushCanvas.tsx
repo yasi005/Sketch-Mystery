@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import HelloDemo from "./HelloDemo";
+import { inkTile } from "./inkTile";
 
 type Point = { x: number; y: number };
 
-const MIN_WIDTH = 3;
-const MAX_WIDTH = 34;
+// MIN_WIDTH stays above what the goo threshold would swallow (~1.2× its blur).
+const MIN_WIDTH = 8;
+const MAX_WIDTH = 40;
 // Stroke distance (px) over which the brush ramps from narrow to full width.
 const RAMP_DISTANCE = 700;
 const COVERAGE_SCALE = 8;
@@ -134,6 +136,16 @@ export default function BrushCanvas() {
     let dpr = 1;
     let stroke: Stroke | null = null;
     let revealRaf = 0;
+    let ink = { hex: "", dpr: 0, pattern: null as CanvasPattern | null };
+
+    const inkPattern = () => {
+      if (ink.hex !== colorRef.current || ink.dpr !== dpr) {
+        const pattern = ctx.createPattern(inkTile(colorRef.current, dpr), "repeat")!;
+        pattern.setTransform(new DOMMatrix().scale(1 / dpr));
+        ink = { hex: colorRef.current, dpr, pattern };
+      }
+      return ink.pattern!;
+    };
 
     const syncCoverageSize = (cssW: number, cssH: number) => {
       const cols = Math.max(1, Math.ceil(cssW / COVERAGE_SCALE));
@@ -192,7 +204,6 @@ export default function BrushCanvas() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(snapshot, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = colorRef.current;
       syncCoverageSize(cssW, cssH);
     };
 
@@ -209,27 +220,13 @@ export default function BrushCanvas() {
       setRevealed(0);
     };
 
+    // Plain discs of pattern-filled ink; the #ink-goo filter on the canvas
+    // fuses them into crisp-edged metaballs.
     const stamp = (x: number, y: number, width: number) => {
-      ctx.fillStyle = colorRef.current;
-      const r = width / 2;
-      const roughness = Math.min(1, (width - MIN_WIDTH) / (MAX_WIDTH - MIN_WIDTH));
-
-      ctx.globalAlpha = 1;
+      ctx.fillStyle = inkPattern();
       ctx.beginPath();
-      ctx.arc(x, y, r * (1 - roughness * 0.18), 0, Math.PI * 2);
+      ctx.arc(x, y, width / 2, 0, Math.PI * 2);
       ctx.fill();
-
-      const grains = Math.round(4 + roughness * 22);
-      for (let i = 0; i < grains; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const d = r * (0.72 + Math.random() * (0.25 + roughness * 0.2));
-        const s = 0.4 + Math.random() * (0.6 + roughness * 1.6);
-        ctx.globalAlpha = 0.55 + Math.random() * 0.45;
-        ctx.beginPath();
-        ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, s, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
       markCoverage(x, y, width);
     };
 
@@ -256,8 +253,9 @@ export default function BrushCanvas() {
       const n = Math.ceil(seg / step);
       for (let i = 1; i <= n; i++) {
         const t = i / n;
-        const w = startW + (target - startW) * t;
-        stamp(stroke.last.x + dx * t, stroke.last.y + dy * t, w);
+        // Slow swell along the stroke so the ink beads and puddles.
+        const swell = 1 + 0.22 * Math.sin((stroke.distance + seg * t) / 26);
+        stamp(stroke.last.x + dx * t, stroke.last.y + dy * t, (startW + (target - startW) * t) * swell);
       }
 
       stroke.distance += seg;
@@ -360,8 +358,19 @@ export default function BrushCanvas() {
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-white select-none">
+      <svg className="absolute h-0 w-0" aria-hidden>
+        {/* Gooey metaball: blur, snap alpha back to a hard edge, then lay the
+            untouched source (stars and grain) back on top of the fused shape. */}
+        <filter id="ink-goo" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+          <feColorMatrix in="blur" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7" result="goo" />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+      </svg>
+
       <canvas
         ref={canvasRef}
+        style={{ filter: "url(#ink-goo)" }}
         className="absolute inset-0 h-full w-full cursor-none touch-none"
         aria-label="Ink reveal canvas. Drag to paint, C clear, D demo, 1–8 change ink."
       />

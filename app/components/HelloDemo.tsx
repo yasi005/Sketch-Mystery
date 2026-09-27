@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { inkTile } from "./inkTile";
 
 type Point = { x: number; y: number };
 
-// Timeline (ms): trace the word, hold with a glint, then dissolve.
+// Timeline (ms): trace the word, hold, then dissolve.
 const DRAW_END = 3800;
-const GLINT_START = 3900;
-const GLINT_END = 4900;
 const FADE_START = 5100;
 const FADE_END = 5800;
 
 // Forward slant of the script, in degrees.
 const SLANT = 12;
-// Monoline stroke weight, in x-heights.
-const STROKE = 0.11;
+// Monoline stroke weight of the white cut, in x-heights.
+const STROKE = 0.09;
+// Width of the dark ink puddle the word is cut through, in x-heights.
+const PUDDLE = 0.62;
 // Extra "time" spent per radian of turning, in x-heights. Makes the pen
 // ease off around loops and run through the straights, like a real hand.
 const TURN_COST = 0.12;
@@ -83,7 +84,7 @@ const hello = (() => {
     time.push(time[i - 1] + ds + TURN_COST * turn);
   }
 
-  const pad = STROKE;
+  const pad = PUDDLE;
   const xs = samples.map((p) => p.x);
   const ys = samples.map((p) => p.y);
   const minX = Math.min(...xs) - pad;
@@ -127,23 +128,28 @@ function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
 const ease = cubicBezier(0.25, 0.1, 0.25, 1);
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+// Ink tile edge in viewBox units, sized for the widest (620px) layout.
+const TILE = ((hello.maxX - hello.minX) * 256) / 620;
+
 /**
- * iOS-style "hello": a monoline script word traced with stroke trimming
- * (dashoffset 1 → 0 on a normalised path length), held with a light glint
- * sweeping across it, then faded out while scaling to 96%.
+ * "hello" as a negative cut: a fat puddle of starlight ink and a white
+ * monoline word traced together with stroke trimming (dashoffset 1 → 0 on a
+ * normalised path length, inherited by both paths), held, then faded out
+ * while scaling to 96%.
  * `run` restarts the animation whenever it changes; 0 hides it.
  */
 export default function HelloDemo({ run, color }: { run: number; color: string }) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const inkRef = useRef<SVGPathElement>(null);
-  const glintRef = useRef<SVGLinearGradientElement>(null);
-  const shineRef = useRef<SVGPathElement>(null);
+  const penRef = useRef<SVGGElement>(null);
+  const texRef = useRef<SVGImageElement>(null);
+
+  useEffect(() => {
+    texRef.current!.setAttribute("href", inkTile(color).toDataURL());
+  }, [color]);
 
   useEffect(() => {
     const wrap = wrapRef.current!;
-    const ink = inkRef.current!;
-    const glint = glintRef.current!;
-    const shine = shineRef.current!;
+    const pen = penRef.current!;
     wrap.style.opacity = "0";
     if (!run) return;
 
@@ -154,14 +160,9 @@ export default function HelloDemo({ run, color }: { run: number; color: string }
       const t = now - start;
 
       const f = drawnFraction(ease(clamp01(t / DRAW_END)));
-      ink.style.strokeDashoffset = String(1 - f);
+      pen.style.strokeDashoffset = String(1 - f);
       // Hidden until the pen touches down, so no round-cap dot shows early.
-      ink.style.visibility = f > 0 ? "visible" : "hidden";
-
-      const g = ease(clamp01((t - GLINT_START) / (GLINT_END - GLINT_START)));
-      const span = hello.maxX - hello.minX + 1.6;
-      glint.setAttribute("gradientTransform", `translate(${(hello.minX - 0.8 + g * span).toFixed(3)} 0)`);
-      shine.style.opacity = t > GLINT_START && t < GLINT_END ? "1" : "0";
+      pen.style.visibility = f > 0 ? "visible" : "hidden";
 
       const fade = ease(clamp01((t - FADE_START) / (FADE_END - FADE_START)));
       wrap.style.opacity = String(1 - fade);
@@ -182,32 +183,26 @@ export default function HelloDemo({ run, color }: { run: number; color: string }
     >
       <svg viewBox={hello.viewBox} className="block h-auto w-full max-h-[40vh] overflow-visible" fill="none">
         <defs>
-          <linearGradient ref={glintRef} id="hello-glint" gradientUnits="userSpaceOnUse" x1="-0.8" y1="0" x2="0.8" y2="0">
-            <stop offset="0" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="0.5" stopColor="#ffffff" stopOpacity="0.28" />
-            <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
+          <pattern id="hello-ink" patternUnits="userSpaceOnUse" width={TILE} height={TILE}>
+            <image ref={texRef} width={TILE} height={TILE} preserveAspectRatio="none" />
+          </pattern>
+          {/* Same metaball trick as #ink-goo, in viewBox units. */}
+          <filter id="hello-goo" x="-30%" y="-40%" width="160%" height="180%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="0.06" result="blur" />
+            <feColorMatrix in="blur" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7" result="goo" />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
         </defs>
-        <path
-          ref={inkRef}
-          d={hello.d}
-          pathLength={1}
-          stroke={color}
-          strokeWidth={STROKE}
+        <g
+          ref={penRef}
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray="1 1"
           strokeDashoffset={1}
-        />
-        <path
-          d={hello.d}
-          ref={shineRef}
-          stroke="url(#hello-glint)"
-          opacity={0}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        >
+          <path d={hello.d} pathLength={1} stroke="url(#hello-ink)" strokeWidth={PUDDLE} filter="url(#hello-goo)" />
+          <path d={hello.d} pathLength={1} stroke="#ffffff" strokeWidth={STROKE} />
+        </g>
       </svg>
     </div>
   );
