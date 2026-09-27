@@ -410,13 +410,17 @@ export default function BrushCanvas() {
       </p>
 
       <header className="pointer-events-none absolute top-7 left-7 z-10 md:top-9 md:left-10">
-        <h1 className="font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] text-zinc-900">
+        <h1 className={`font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] transition-colors duration-[1400ms] ${
+            revealed >= COMPLETE_AT ? "text-white" : "text-zinc-900"
+          }`}>
           EXPLORE THE SPACE
         </h1>
       </header>
 
       <div
-        className="pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider text-zinc-500 md:right-10 md:bottom-8"
+        className={`pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider transition-colors duration-[1400ms] md:right-10 md:bottom-8 ${
+          revealed >= COMPLETE_AT ? "text-white/70" : "text-zinc-500"
+        }`}
         aria-live="polite"
       >
         <p ref={coordsRef}>X: 0 / Y: 0</p>
@@ -460,7 +464,7 @@ export default function BrushCanvas() {
 
       <div
         ref={cursorRef}
-        className="pointer-events-none absolute top-0 left-0 z-30 rounded-full border border-white opacity-0 mix-blend-difference transition-opacity duration-150 will-change-transform"
+        className="pointer-events-none absolute top-0 left-0 z-30 rounded-full border border-zinc-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform"
         aria-hidden
       />
     </div>
