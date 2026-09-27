@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import HelloDemo from "./HelloDemo";
 import { inkTile } from "./inkTile";
 
 type Point = { x: number; y: number };
@@ -14,6 +13,10 @@ const RAMP_DISTANCE = 700;
 const COVERAGE_SCALE = 8;
 // Coverage (%) at which the rest of the field floods in on its own.
 const COMPLETE_AT = 60;
+// Peek timeline (ms): ghost brush sweeps, holds, page folds back.
+const PEEK_DRAW = 1700;
+const PEEK_HOLD = 2600;
+const PEEK_FOLD = 3300;
 
 type Stroke = {
   last: Point;
@@ -206,7 +209,7 @@ export default function BrushCanvas() {
 
   const [activeId, setActiveId] = useState(SWATCHES[0].id);
   const [revealed, setRevealed] = useState(0);
-  const [helloRun, setHelloRun] = useState(0);
+  const [guide, setGuide] = useState(false);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
@@ -373,14 +376,51 @@ export default function BrushCanvas() {
       coordsRef.current!.textContent = `X: ${Math.round(p.x)} / Y: ${Math.round(p.y)}`;
     };
 
-    // The "hello" demo lives in its own SVG layer (HelloDemo), so it can
-    // fade out on its own without touching what the user has painted.
-    const stopDemo = () => setHelloRun(0);
+    // The peek: a ghost brush sweeps one wave through the middle of the page,
+    // turning a slice of it inside out, holds, then the page folds back to
+    // Side A and the guide appears.
+    let demoRaf = 0;
+    const stopDemo = () => {
+      cancelAnimationFrame(demoRaf);
+      demoRaf = 0;
+      canvas.style.transition = canvas.style.opacity = "";
+    };
 
     const runDemo = () => {
+      stopDemo();
       clear();
-      endStroke();
-      setHelloRun((n) => n + 1);
+      stroke = null;
+      setGuide(false);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const at = (u: number) => ({
+        x: w * (0.1 + 0.8 * u),
+        y: h * (0.5 + 0.14 * Math.sin(u * Math.PI * 1.6 + 0.6)),
+      });
+      const start = performance.now();
+      beginStroke(at(0), Math.min(110, h * 0.14));
+
+      const tick = (now: number) => {
+        const t = now - start;
+        if (t < PEEK_DRAW) {
+          const u = t / PEEK_DRAW;
+          const p = at(u * u * (3 - 2 * u));
+          extendStroke(p, null);
+          moveCursor(p, true);
+        } else if (t < PEEK_FOLD) {
+          stroke = null;
+          cursor.style.opacity = "0";
+          canvas.style.transition = `opacity ${PEEK_FOLD - PEEK_HOLD}ms ease-in`;
+          if (t >= PEEK_HOLD) canvas.style.opacity = "0";
+        } else {
+          clear();
+          stopDemo();
+          setGuide(true);
+          return;
+        }
+        demoRaf = requestAnimationFrame(tick);
+      };
+      demoRaf = requestAnimationFrame(tick);
     };
 
     const penPressure = (e: PointerEvent) =>
@@ -388,7 +428,11 @@ export default function BrushCanvas() {
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
-      stopDemo();
+      if (demoRaf) {
+        stopDemo();
+        clear();
+      }
+      setGuide(false);
       canvas.setPointerCapture(e.pointerId);
       beginStroke({ x: e.clientX, y: e.clientY });
       moveCursor({ x: e.clientX, y: e.clientY }, true);
@@ -422,6 +466,7 @@ export default function BrushCanvas() {
       if (e.key === "c" || e.key === "C") {
         stopDemo();
         clear();
+        setGuide(true);
       } else if (e.key === "d" || e.key === "D") {
         runDemo();
       } else if (e.key >= "1" && e.key <= "8") {
@@ -445,10 +490,11 @@ export default function BrushCanvas() {
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Deferred a frame so the state update happens outside the effect body.
-    const introFrame = reduceMotion ? 0 : requestAnimationFrame(runDemo);
+    const introFrame = requestAnimationFrame(reduceMotion ? () => setGuide(true) : runDemo);
 
     return () => {
       cancelAnimationFrame(introFrame);
+      cancelAnimationFrame(demoRaf);
       cancelAnimationFrame(revealRaf);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onDown);
@@ -477,10 +523,21 @@ export default function BrushCanvas() {
         ref={canvasRef}
         style={{ filter: "url(#ink-goo)" }}
         className="absolute inset-0 h-full w-full cursor-none touch-none"
-        aria-label="Ink reveal canvas. Drag to paint, C clear, D demo, 1–8 change ink."
+        aria-label="Reversible page. Drag to paint it inside out, C clear, D peek, 1–8 change ink."
       />
 
-      <HelloDemo run={helloRun} color={SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex} />
+      <div
+        className={`pointer-events-none absolute top-[64%] left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-900/15 bg-white/60 py-2 pr-4 pl-2.5 font-mono text-[10px] tracking-[0.18em] w-max max-w-[calc(100vw-32px)] text-zinc-800 uppercase backdrop-blur-sm transition-all duration-700 ${
+          guide ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        }`}
+        aria-hidden={!guide}
+      >
+        <span className="relative block h-4 w-4" aria-hidden>
+          <span className="absolute inset-0 rounded-full border border-zinc-900 motion-safe:animate-ping" />
+          <span className="absolute inset-[5px] rounded-full bg-zinc-900" />
+        </span>
+        Drag anywhere to turn the page inside out
+      </div>
 
       {/* Past COMPLETE_AT the rest of the ink floods in; clearing drains it. */}
       <div
@@ -549,7 +606,7 @@ export default function BrushCanvas() {
           </div>
         </div>
         <p className="mt-2 text-center font-mono text-[9px] tracking-wide text-zinc-400">
-          drag · C clear · D demo · 1–8 ink
+          drag · C clear · D peek · 1–8 ink
         </p>
       </div>
 

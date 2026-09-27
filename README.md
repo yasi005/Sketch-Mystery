@@ -34,10 +34,10 @@ If it feels like something you might linger over with one finger on the trackpad
 | | |
 |:--|:--|
 | **Drag** | Paint textured ink across the field |
-| **Hello demo** | A cursive intro writes itself on load, then dissolves |
+| **The peek** | On load a ghost brush turns a slice of the page inside out, then it folds back and a guide invites you to draw |
 | **Calibration dock** | Eight deep, desaturated inks — abyssal through monolith zinc |
 | **Keys `1`–`8`** | Jump straight to a swatch |
-| **`C` / `D`** | Clear the field · replay the hello |
+| **`C` / `D`** | Clear the field · replay the peek |
 | **Telemetry** | Live `X / Y` and `REVEALED %` in the corner |
 
 Respects `prefers-reduced-motion` — the intro stays quiet when asked.
@@ -46,12 +46,12 @@ Respects `prefers-reduced-motion` — the intro stays quiet when asked.
 
 ## How the reveal works
 
-Nothing is masked. Nothing is cheated with a clip path.
+The page is reversible, like a jacket with two sides.
 
-1. A canvas paints matte ink under your pointer  
-2. A white overlay — editorial type + SVG orbital wireframes — sits on top  
-3. On white ground the overlay disappears; on dark ink it reads razor-sharp  
-4. A coarse coverage grid samples painted cells to drive **REVEALED %**
+1. **Side A** — a sunlit day chart on cream paper — is printed under the canvas  
+2. **Side B** — the night atlas — is baked once into a full-viewport image: starlight ink with the chart printed on it in the paper colour  
+3. The brush paints *with that image*, so Side B exists only where you paint, never on Side A  
+4. A coarse coverage grid samples painted cells to drive **REVEALED %**; past 60% the rest floods in
 
 The brush is a chain of discs filled with a tiled "starlight ink" texture — matte
 pigment, lithographic noise, risograph grit, pinprick stars. A gooey SVG filter (blur →
@@ -96,16 +96,15 @@ Open **[localhost:3000](http://localhost:3000)** and draw when you are ready.
 ```
 app/
 ├── components/
-│   ├── BrushCanvas.tsx   # ink, dock, telemetry, pointer input
-│   ├── inkTile.ts        # starlight ink texture tile
-│   └── HelloDemo.tsx     # cursive hello — white cut through an ink puddle
+│   ├── BrushCanvas.tsx   # both sides, ink, peek, dock, telemetry, pointer input
+│   └── inkTile.ts        # starlight ink texture tile
 ├── globals.css
 ├── layout.tsx
 └── page.tsx
 ```
 
-One screen. One job. The hello lives in its own component so the intro timeline
-never tangles with free drawing.
+One screen. One job. The peek drives the real brush, so the intro is exactly
+what drawing does.
 
 ---
 
