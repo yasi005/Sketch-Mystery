@@ -40,82 +40,161 @@ const SWATCHES: Swatch[] = [
   { id: "SPEC-08", name: "Monolith", hex: "#2C3034", nm: "480nm" },
 ];
 
-function RevealLayer() {
+// Side A of the reversible page: a sunlit day chart printed on cream.
+// It sits under the ink, so every stroke turns the page inside out onto
+// Side B (the night atlas in RevealLayer), which is printed in the paper
+// colour itself and so only shows where ink darkens the ground.
+const PAPER = "#EFE9DD";
+const SEPIA = "#2A1D14";
+const TERRA = "#C8643B";
+
+function FrontSide() {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 overflow-hidden text-white [filter:drop-shadow(0_1px_0_rgba(0,0,0,0.07))]"
-      aria-hidden
-    >
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ color: SEPIA }} aria-hidden>
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid slice"
         fill="none"
       >
-        <g stroke="#ffffff" strokeWidth="0.6" opacity="0.95">
-          <circle cx="720" cy="450" r="210" />
-          <circle cx="720" cy="450" r="320" />
-          <circle cx="720" cy="450" r="410" strokeDasharray="2 6" />
-          <ellipse cx="720" cy="450" rx="520" ry="180" />
-          <ellipse cx="720" cy="450" rx="180" ry="520" />
-          <line x1="720" y1="40" x2="720" y2="860" />
-          <line x1="80" y1="450" x2="1360" y2="450" />
-          <line x1="220" y1="120" x2="1220" y2="780" />
-          <line x1="1220" y1="120" x2="220" y2="780" />
+        <g stroke={SEPIA} strokeWidth="0.5" opacity="0.1">
+          {Array.from({ length: 11 }, (_, i) => (
+            <line key={i} x1={120 * (i + 1)} y1="0" x2={120 * (i + 1)} y2="900" />
+          ))}
         </g>
-        <g stroke="#ffffff" strokeWidth="0.45" opacity="0.75">
-          <path d="M720 450 L980 210 L1100 340 L920 520 Z" />
-          <path d="M720 450 L460 680 L340 540 L540 380 Z" />
-          <circle cx="980" cy="210" r="4" fill="#ffffff" stroke="none" />
-          <circle cx="1100" cy="340" r="3" fill="#ffffff" stroke="none" />
-          <circle cx="460" cy="680" r="3.5" fill="#ffffff" stroke="none" />
-          <circle cx="340" cy="540" r="2.5" fill="#ffffff" stroke="none" />
-          <circle cx="540" cy="380" r="3" fill="#ffffff" stroke="none" />
+        <circle cx="1060" cy="330" r="190" fill="#E9BC8E" />
+        <g stroke={TERRA} strokeWidth="0.8" opacity="0.6">
+          <circle cx="1060" cy="330" r="150" />
+          <circle cx="1060" cy="330" r="110" strokeDasharray="2 5" />
+          {Array.from({ length: 36 }, (_, i) => {
+            const a = (i * Math.PI) / 18;
+            const r0 = 214;
+            const r1 = i % 3 ? 232 : 256;
+            return (
+              <line
+                key={i}
+                x1={(1060 + r0 * Math.cos(a)).toFixed(1)}
+                y1={(330 + r0 * Math.sin(a)).toFixed(1)}
+                x2={(1060 + r1 * Math.cos(a)).toFixed(1)}
+                y2={(330 + r1 * Math.sin(a)).toFixed(1)}
+              />
+            );
+          })}
         </g>
-        <g
-          fill="#ffffff"
-          fontFamily="ui-monospace, monospace"
-          fontSize="9"
-          letterSpacing="0.12em"
-          opacity="0.85"
-        >
-          <text x="250" y="160">
-            RA 14h 39m
-          </text>
-          <text x="1080" y="200">
-            DEC −60° 50′
-          </text>
-          <text x="180" y="720">
-            ORBITAL PLANE 23.4°
-          </text>
-          <text x="1040" y="740">
-            λ 420–680
-          </text>
+        <g stroke={SEPIA} strokeWidth="0.7" opacity="0.55">
+          <line x1="0" y1="640" x2="1440" y2="640" />
+          <path d="M160 640 Q720 40 1280 640" strokeDasharray="3 7" />
+          <path d="M320 640 Q720 240 1120 640" strokeDasharray="1 5" />
+        </g>
+        <g fill={TERRA}>
+          <circle cx="720" cy="340" r="4" />
+          <circle cx="428" cy="440" r="3" />
+          <circle cx="1012" cy="440" r="3" />
+        </g>
+        <g fill={SEPIA} fontFamily="ui-monospace, monospace" fontSize="9" letterSpacing="0.14em" opacity="0.7">
+          <text x="730" y="332">SOLAR NOON 12:04</text>
+          <text x="1164" y="620">LAT 35°41′N</text>
+          <text x="120" y="620">SUNRISE 06:12</text>
+          <text x="1210" y="140">SIDE A</text>
         </g>
       </svg>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8">
-        <p className="font-sans text-[clamp(2.5rem,8vw,7rem)] font-bold leading-[0.9] tracking-[-0.06em] text-white">
-          VOID ATLAS
+      <div className="absolute top-[17%] left-7 md:left-10">
+        <p className="font-sans text-[clamp(2.2rem,6.5vw,5.5rem)] leading-[0.88] font-bold tracking-[-0.06em]">
+          LUMEN
+          <br />
+          <span style={{ color: TERRA }}>ATLAS</span>
         </p>
-        <p className="max-w-xl text-center font-sans text-[clamp(0.7rem,1.4vw,0.95rem)] font-medium leading-relaxed tracking-[0.28em] text-white uppercase">
-          Swiss editorial cartography of invisible orbits
-        </p>
-        <p className="mt-6 max-w-2xl text-center font-sans text-[clamp(0.65rem,1.1vw,0.8rem)] leading-[1.7] tracking-[0.04em] text-white/95">
-          Calibrate the ink. Draw across the field. Typography and wireframes
-          exist on the page at all times — they only appear where pigment densifies
-          the ground.
+        <p className="mt-4 max-w-[17rem] font-mono text-[10px] leading-relaxed tracking-[0.08em] uppercase opacity-70">
+          Side A — the daylight edition. A reversible page: paint over it to wear it inside out.
         </p>
       </div>
     </div>
   );
 }
 
+// Side B, the night atlas: a full-viewport bake of starlight ink with the
+// chart printed on it in the paper colour. The brush paints with this image,
+// so Side B exists only where the page has been painted, never on Side A.
+function drawSideB(c: HTMLCanvasElement, w: number, h: number, dpr: number, hex: string) {
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  const g = c.getContext("2d")!;
+  g.fillStyle = g.createPattern(inkTile(hex, dpr), "repeat")!;
+  g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = g.strokeStyle = PAPER;
+
+  // Chart art lives in a 1440×900 box, cropped to cover like `slice`.
+  const s = Math.max(w / 1440, h / 900);
+  g.setTransform(dpr * s, 0, 0, dpr * s, (dpr * (w - 1440 * s)) / 2, (dpr * (h - 900 * s)) / 2);
+  const stroke = (width: number, alpha: number, path: Path2D, dash: number[] = []) => {
+    g.lineWidth = width;
+    g.globalAlpha = alpha;
+    g.setLineDash(dash);
+    g.stroke(path);
+  };
+  const ring = (rx: number, ry = rx) => {
+    const p = new Path2D();
+    p.ellipse(720, 450, rx, ry, 0, 0, Math.PI * 2);
+    return p;
+  };
+  for (const r of [210, 320]) stroke(0.6, 0.95, ring(r));
+  stroke(0.6, 0.95, ring(410), [2, 6]);
+  stroke(0.6, 0.95, ring(520, 180));
+  stroke(0.6, 0.95, ring(180, 520));
+  stroke(0.6, 0.95, new Path2D("M720 40V860M80 450H1360M220 120L1220 780M1220 120L220 780"));
+  stroke(0.45, 0.75, new Path2D("M720 450L980 210L1100 340L920 520ZM720 450L460 680L340 540L540 380Z"));
+  for (const [x, y, r] of [[980, 210, 4], [1100, 340, 3], [460, 680, 3.5], [340, 540, 2.5], [540, 380, 3]]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 0.85;
+  g.font = "9px ui-monospace, monospace";
+  g.letterSpacing = "1.08px";
+  for (const [t, x, y] of [["RA 14h 39m", 250, 160], ["DEC −60° 50′", 1080, 200], ["ORBITAL PLANE 23.4°", 180, 720], ["λ 420–680", 1040, 740]] as const) {
+    g.fillText(t, x, y);
+  }
+
+  // Editorial type, centred on the viewport in CSS px.
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const sans = getComputedStyle(document.body).fontFamily;
+  const clampPx = (min: number, v: number, max: number) => Math.min(max, Math.max(min, v));
+  // Shrinks a size until every line fits the width (mobile).
+  const fit = (size: number, weight: number, spacing: number, lines: string[], max: number) => {
+    const set = (px: number) => {
+      g.font = `${weight} ${px}px ${sans}`;
+      g.letterSpacing = `${spacing * px}px`;
+    };
+    set(size);
+    const widest = Math.max(...lines.map((l) => g.measureText(l).width));
+    if (widest > max) set((size *= max / widest));
+    return size;
+  };
+  const title = fit(clampPx(40, w * 0.08, 112), 700, -0.06, ["VOID ATLAS"], w - 48);
+  const subLine = "SWISS EDITORIAL CARTOGRAPHY OF INVISIBLE ORBITS";
+  const sub = clampPx(11.2, w * 0.014, 15.2);
+  const body = ["Calibrate the ink. Draw across the field. Typography and wireframes exist on the page at all times —", "they only appear where pigment densifies the ground."];
+  const para = clampPx(10.4, w * 0.011, 12.8);
+  const top = h / 2 - (title * 0.9 + 12 + sub * 1.6 + 36 + para * 3.4) / 2;
+
+  g.globalAlpha = 1;
+  fit(title, 700, -0.06, ["VOID ATLAS"], w - 48);
+  g.fillText("VOID ATLAS", w / 2, top + title * 0.45);
+  const subY = top + title * 0.9 + 12 + sub * 0.8;
+  fit(sub, 500, 0.28, [subLine], w - 48);
+  g.fillText(subLine, w / 2, subY);
+  g.globalAlpha = 0.95;
+  const p = fit(para, 400, 0.04, body, Math.min(672, w - 48));
+  body.forEach((l, i) => g.fillText(l, w / 2, subY + sub * 0.8 + 36 + p * (0.85 + 1.7 * i)));
+}
+
 export default function BrushCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const floodRef = useRef<HTMLDivElement>(null);
+  const sideBRef = useRef<HTMLCanvasElement>(null);
   const coordsRef = useRef<HTMLParagraphElement>(null);
   const colorRef = useRef(SWATCHES[0].hex);
   const coverageRef = useRef<{
@@ -131,12 +210,11 @@ export default function BrushCanvas() {
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
-    floodRef.current!.style.backgroundImage = `url(${inkTile(colorRef.current).toDataURL()})`;
   }, [activeId]);
 
-  // Paper grain: the ink tile's noise and dust on white.
+  // Paper grain: the ink tile's noise and dust on cream.
   useEffect(() => {
-    rootRef.current!.style.backgroundImage = `url(${inkTile("#ffffff").toDataURL()})`;
+    rootRef.current!.style.backgroundImage = `url(${inkTile(PAPER).toDataURL()})`;
   }, []);
 
   useEffect(() => {
@@ -146,13 +224,19 @@ export default function BrushCanvas() {
     let dpr = 1;
     let stroke: Stroke | null = null;
     let revealRaf = 0;
-    let ink = { hex: "", dpr: 0, pattern: null as CanvasPattern | null };
+    const sideB = sideBRef.current!;
+    let ink = { key: "", pattern: null as CanvasPattern | null };
 
+    // Rebaked when the ink or the viewport changes. The bake is also the
+    // flood layer, so it stays current there too.
+    // ponytail: ink laid before a resize keeps Side B at its old layout.
     const inkPattern = () => {
-      if (ink.hex !== colorRef.current || ink.dpr !== dpr) {
-        const pattern = ctx.createPattern(inkTile(colorRef.current, dpr), "repeat")!;
+      const key = `${colorRef.current} ${canvas.width}x${canvas.height}`;
+      if (ink.key !== key) {
+        drawSideB(sideB, window.innerWidth, window.innerHeight, dpr, colorRef.current);
+        const pattern = ctx.createPattern(sideB, "no-repeat")!;
         pattern.setTransform(new DOMMatrix().scale(1 / dpr));
-        ink = { hex: colorRef.current, dpr, pattern };
+        ink = { key, pattern };
       }
       return ink.pattern!;
     };
@@ -215,6 +299,7 @@ export default function BrushCanvas() {
       ctx.drawImage(snapshot, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       syncCoverageSize(cssW, cssH);
+      inkPattern();
     };
 
     const clear = () => {
@@ -345,6 +430,11 @@ export default function BrushCanvas() {
     };
 
     resize();
+    // Webfonts may land after first paint; redraw Side B with them.
+    document.fonts.ready.then(() => {
+      ink.key = "";
+      inkPattern();
+    });
     window.addEventListener("resize", resize);
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
@@ -371,7 +461,7 @@ export default function BrushCanvas() {
   }, []);
 
   return (
-    <div ref={rootRef} className="fixed inset-0 overflow-hidden bg-white select-none">
+    <div ref={rootRef} className="fixed inset-0 overflow-hidden select-none" style={{ backgroundColor: PAPER }}>
       <svg className="absolute h-0 w-0" aria-hidden>
         {/* Gooey metaball: blur, snap alpha back to a hard edge, then lay the
             untouched source (stars and grain) back on top of the fused shape. */}
@@ -382,6 +472,7 @@ export default function BrushCanvas() {
         </filter>
       </svg>
 
+      <FrontSide />
       <canvas
         ref={canvasRef}
         style={{ filter: "url(#ink-goo)" }}
@@ -393,13 +484,13 @@ export default function BrushCanvas() {
 
       {/* Past COMPLETE_AT the rest of the ink floods in; clearing drains it. */}
       <div
-        ref={floodRef}
-        className={`pointer-events-none absolute inset-0 bg-[length:256px] transition-opacity duration-[1400ms] ease-out ${
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-[1400ms] ease-out ${
           revealed >= COMPLETE_AT ? "opacity-100" : "opacity-0"
         }`}
         aria-hidden
-      />
-      <RevealLayer />
+      >
+        <canvas ref={sideBRef} className="absolute inset-0 h-full w-full" />
+      </div>
       <p
         className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-700 duration-700 ${
           revealed >= COMPLETE_AT ? "scale-100 opacity-100" : "scale-125 opacity-0"
