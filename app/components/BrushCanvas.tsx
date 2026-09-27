@@ -11,8 +11,11 @@ const MAX_WIDTH = 40;
 // Stroke distance (px) over which the brush ramps from narrow to full width.
 const RAMP_DISTANCE = 700;
 const COVERAGE_SCALE = 8;
-// Coverage (%) at which the rest of the field floods in on its own.
+// Coverage (%) at which the page brushes the rest of itself in.
 const COMPLETE_AT = 60;
+// Self-brush timeline (ms): delay between bands, and one band's sweep.
+const FLOOD_STAGGER = 90;
+const FLOOD_SWEEP = 1100;
 // Peek timeline (ms): ghost brush sweeps, holds, page folds back.
 const PEEK_DRAW = 1700;
 const PEEK_HOLD = 2600;
@@ -197,7 +200,6 @@ export default function BrushCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const sideBRef = useRef<HTMLCanvasElement>(null);
   const coordsRef = useRef<HTMLParagraphElement>(null);
   const colorRef = useRef(SWATCHES[0].hex);
   const coverageRef = useRef<{
@@ -227,11 +229,10 @@ export default function BrushCanvas() {
     let dpr = 1;
     let stroke: Stroke | null = null;
     let revealRaf = 0;
-    const sideB = sideBRef.current!;
+    const sideB = document.createElement("canvas");
     let ink = { key: "", pattern: null as CanvasPattern | null };
 
-    // Rebaked when the ink or the viewport changes. The bake is also the
-    // flood layer, so it stays current there too.
+    // Rebaked when the ink or the viewport changes.
     // ponytail: ink laid before a resize keeps Side B at its old layout.
     const inkPattern = () => {
       const key = `${colorRef.current} ${canvas.width}x${canvas.height}`;
@@ -285,6 +286,7 @@ export default function BrushCanvas() {
       if (!cov) return;
       const pct = (cov.painted / (cov.cols * cov.rows)) * 100;
       setRevealed(Math.min(100, pct));
+      if (pct >= COMPLETE_AT && !flooded) runFlood();
     };
 
     const resize = () => {
@@ -306,6 +308,7 @@ export default function BrushCanvas() {
     };
 
     const clear = () => {
+      stopFlood();
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -328,37 +331,96 @@ export default function BrushCanvas() {
       markCoverage(x, y, width);
     };
 
-    const beginStroke = (p: Point, maxWidth = MAX_WIDTH) => {
-      stroke = { last: p, distance: 0, width: MIN_WIDTH, maxWidth };
+    const newStroke = (p: Point, maxWidth = MAX_WIDTH): Stroke => {
       stamp(p.x, p.y, MIN_WIDTH);
+      return { last: p, distance: 0, width: MIN_WIDTH, maxWidth };
     };
 
-    const extendStroke = (p: Point, pressure: number | null) => {
-      if (!stroke) return;
-      const dx = p.x - stroke.last.x;
-      const dy = p.y - stroke.last.y;
+    const beginStroke = (p: Point, maxWidth = MAX_WIDTH) => {
+      stroke = newStroke(p, maxWidth);
+    };
+
+    // Extends the user's stroke, or `s` for a ghost brush.
+    const extendStroke = (p: Point, pressure: number | null, s = stroke) => {
+      if (!s) return;
+      const dx = p.x - s.last.x;
+      const dy = p.y - s.last.y;
       const seg = Math.hypot(dx, dy);
       if (seg < 0.5) return;
 
-      const ramp = 1 - Math.pow(1 - Math.min(1, stroke.distance / RAMP_DISTANCE), 2);
+      const ramp = 1 - Math.pow(1 - Math.min(1, s.distance / RAMP_DISTANCE), 2);
       const target =
         pressure !== null
-          ? MIN_WIDTH + (stroke.maxWidth - MIN_WIDTH) * pressure * (0.4 + 0.6 * ramp)
-          : MIN_WIDTH + (stroke.maxWidth - MIN_WIDTH) * ramp * (1 - Math.min(0.35, seg / 180));
+          ? MIN_WIDTH + (s.maxWidth - MIN_WIDTH) * pressure * (0.4 + 0.6 * ramp)
+          : MIN_WIDTH + (s.maxWidth - MIN_WIDTH) * ramp * (1 - Math.min(0.35, seg / 180));
 
-      const startW = stroke.width;
+      const startW = s.width;
       const step = Math.max(0.6, Math.min(startW, target) * 0.22);
       const n = Math.ceil(seg / step);
       for (let i = 1; i <= n; i++) {
         const t = i / n;
         // Slow swell along the stroke so the ink beads and puddles.
-        const swell = 1 + 0.22 * Math.sin((stroke.distance + seg * t) / 26);
-        stamp(stroke.last.x + dx * t, stroke.last.y + dy * t, (startW + (target - startW) * t) * swell);
+        const swell = 1 + 0.22 * Math.sin((s.distance + seg * t) / 26);
+        stamp(s.last.x + dx * t, s.last.y + dy * t, (startW + (target - startW) * t) * swell);
       }
 
-      stroke.distance += seg;
-      stroke.width = startW + (target - startW) * 0.35;
-      stroke.last = p;
+      s.distance += seg;
+      s.width = startW + (target - startW) * 0.35;
+      s.last = p;
+    };
+
+    // Past COMPLETE_AT the page finishes turning itself: one ghost brush per
+    // band, staggered top to bottom and alternating direction, sweeps the
+    // whole viewport with the real brush; then any pinholes are filled.
+    let floodRaf = 0;
+    let flooded = false;
+    const stopFlood = () => {
+      cancelAnimationFrame(floodRaf);
+      floodRaf = 0;
+      flooded = false;
+    };
+
+    const runFlood = () => {
+      flooded = true;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const width = Math.max(120, Math.min(200, h / 4));
+      const band = width * 0.42;
+      const brushes = Array.from({ length: Math.ceil(h / band) + 1 }, (_, i) => ({
+        start: i * FLOOD_STAGGER,
+        s: null as Stroke | null,
+        // Starts off-screen so the brush has ramped to full width on entry.
+        at: (u: number) => ({
+          x: i % 2 ? w * (1.35 - 1.7 * u) : w * (-0.35 + 1.7 * u),
+          y: i * band + 14 * Math.sin(u * Math.PI * 2 + i),
+        }),
+      }));
+      const end = (brushes.length - 1) * FLOOD_STAGGER + FLOOD_SWEEP;
+      const t0 = performance.now();
+
+      const tick = (now: number) => {
+        const t = now - t0;
+        for (const b of brushes) {
+          if (t < b.start) break;
+          const p = b.at(Math.min(1, (t - b.start) / FLOOD_SWEEP));
+          if (b.s) extendStroke(p, null, b.s);
+          else b.s = newStroke(p, width);
+        }
+        if (t >= end) {
+          ctx.fillStyle = inkPattern();
+          ctx.fillRect(0, 0, w, h);
+          const cov = coverageRef.current;
+          if (cov) {
+            cov.grid.fill(1);
+            cov.painted = cov.grid.length;
+          }
+          floodRaf = 0;
+        } else {
+          floodRaf = requestAnimationFrame(tick);
+        }
+        publishReveal();
+      };
+      floodRaf = requestAnimationFrame(tick);
     };
 
     const endStroke = () => {
@@ -495,6 +557,7 @@ export default function BrushCanvas() {
     return () => {
       cancelAnimationFrame(introFrame);
       cancelAnimationFrame(demoRaf);
+      cancelAnimationFrame(floodRaf);
       cancelAnimationFrame(revealRaf);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onDown);
@@ -539,22 +602,14 @@ export default function BrushCanvas() {
         Drag anywhere to turn the page inside out
       </div>
 
-      {/* Past COMPLETE_AT the rest of the ink floods in; clearing drains it. */}
-      <div
-        className={`pointer-events-none absolute inset-0 transition-opacity duration-[1400ms] ease-out ${
-          revealed >= COMPLETE_AT ? "opacity-100" : "opacity-0"
-        }`}
-        aria-hidden
-      >
-        <canvas ref={sideBRef} className="absolute inset-0 h-full w-full" />
-      </div>
+      {/* Stamped once the page has finished brushing itself in. */}
       <p
-        className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-700 duration-700 ${
-          revealed >= COMPLETE_AT ? "scale-100 opacity-100" : "scale-125 opacity-0"
+        className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-300 duration-700 ${
+          revealed >= 100 ? "scale-100 opacity-100" : "scale-125 opacity-0"
         }`}
         aria-live="polite"
       >
-        {revealed >= COMPLETE_AT ? "ATLAS COMPLETE" : ""}
+        {revealed >= 100 ? "ATLAS COMPLETE" : ""}
       </p>
 
       <header className="pointer-events-none absolute top-7 left-7 z-10 md:top-9 md:left-10">

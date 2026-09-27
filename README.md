@@ -51,7 +51,7 @@ The page is reversible, like a jacket with two sides.
 1. **Side A** — a sunlit day chart on cream paper — is printed under the canvas  
 2. **Side B** — the night atlas — is baked once into a full-viewport image: starlight ink with the chart printed on it in the paper colour  
 3. The brush paints *with that image*, so Side B exists only where you paint, never on Side A  
-4. A coarse coverage grid samples painted cells to drive **REVEALED %**; past 60% the rest floods in
+4. A coarse coverage grid samples painted cells to drive **REVEALED %**; past 60% ghost brushes sweep the rest of the page in, band by band
 
 The brush is a chain of discs filled with a tiled "starlight ink" texture — matte
 pigment, lithographic noise, risograph grit, pinprick stars. A gooey SVG filter (blur →
