@@ -128,13 +128,6 @@ Canvas 2D
 
 ---
 
-## Security
-
-No accounts, no uploads, no secrets in this repo. See [SECURITY.md](./SECURITY.md)
-if you find something that should not be public.
-
----
-
 ## Author
 
 **Yazmin** · [yazmin.dev](https://www.yazmin.dev/) · [github.com/yasi005](https://github.com/yasi005)
