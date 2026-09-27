@@ -12,6 +12,8 @@ const MAX_WIDTH = 40;
 // Stroke distance (px) over which the brush ramps from narrow to full width.
 const RAMP_DISTANCE = 700;
 const COVERAGE_SCALE = 8;
+// Coverage (%) at which the rest of the field floods in on its own.
+const COMPLETE_AT = 60;
 
 type Stroke = {
   last: Point;
@@ -41,7 +43,7 @@ const SWATCHES: Swatch[] = [
 function RevealLayer() {
   return (
     <div
-      className="pointer-events-none absolute inset-0 overflow-hidden text-white"
+      className="pointer-events-none absolute inset-0 overflow-hidden text-white [filter:drop-shadow(0_1px_0_rgba(0,0,0,0.07))]"
       aria-hidden
     >
       <svg
@@ -112,6 +114,9 @@ function RevealLayer() {
 export default function BrushCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const floodRef = useRef<HTMLDivElement>(null);
+  const coordsRef = useRef<HTMLParagraphElement>(null);
   const colorRef = useRef(SWATCHES[0].hex);
   const coverageRef = useRef<{
     grid: Uint8Array;
@@ -121,13 +126,18 @@ export default function BrushCanvas() {
   } | null>(null);
 
   const [activeId, setActiveId] = useState(SWATCHES[0].id);
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [revealed, setRevealed] = useState(0);
   const [helloRun, setHelloRun] = useState(0);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
+    floodRef.current!.style.backgroundImage = `url(${inkTile(colorRef.current).toDataURL()})`;
   }, [activeId]);
+
+  // Paper grain: the ink tile's noise and dust on white.
+  useEffect(() => {
+    rootRef.current!.style.backgroundImage = `url(${inkTile("#ffffff").toDataURL()})`;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -269,9 +279,13 @@ export default function BrushCanvas() {
     };
 
     const moveCursor = (p: Point, pressed: boolean) => {
-      cursor.style.transform = `translate(${p.x}px, ${p.y}px) scale(${pressed ? 0.92 : 1})`;
+      // Ring matches the live brush width while drawing, full width on hover.
+      const size = pressed && stroke ? stroke.width : MAX_WIDTH;
+      cursor.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2}px)`;
+      cursor.style.width = cursor.style.height = `${size}px`;
       cursor.style.opacity = "1";
-      setCoords({ x: Math.round(p.x), y: Math.round(p.y) });
+      // Written straight to the DOM: a React re-render per pointermove is jank.
+      coordsRef.current!.textContent = `X: ${Math.round(p.x)} / Y: ${Math.round(p.y)}`;
     };
 
     // The "hello" demo lives in its own SVG layer (HelloDemo), so it can
@@ -357,7 +371,7 @@ export default function BrushCanvas() {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-white select-none">
+    <div ref={rootRef} className="fixed inset-0 overflow-hidden bg-white select-none">
       <svg className="absolute h-0 w-0" aria-hidden>
         {/* Gooey metaball: blur, snap alpha back to a hard edge, then lay the
             untouched source (stars and grain) back on top of the fused shape. */}
@@ -377,7 +391,23 @@ export default function BrushCanvas() {
 
       <HelloDemo run={helloRun} color={SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex} />
 
+      {/* Past COMPLETE_AT the rest of the ink floods in; clearing drains it. */}
+      <div
+        ref={floodRef}
+        className={`pointer-events-none absolute inset-0 bg-[length:256px] transition-opacity duration-[1400ms] ease-out ${
+          revealed >= COMPLETE_AT ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden
+      />
       <RevealLayer />
+      <p
+        className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-700 duration-700 ${
+          revealed >= COMPLETE_AT ? "scale-100 opacity-100" : "scale-125 opacity-0"
+        }`}
+        aria-live="polite"
+      >
+        {revealed >= COMPLETE_AT ? "ATLAS COMPLETE" : ""}
+      </p>
 
       <header className="pointer-events-none absolute top-7 left-7 z-10 md:top-9 md:left-10">
         <h1 className="font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] text-zinc-900">
@@ -389,9 +419,7 @@ export default function BrushCanvas() {
         className="pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider text-zinc-500 md:right-10 md:bottom-8"
         aria-live="polite"
       >
-        <p>
-          X: {coords.x} / Y: {coords.y}
-        </p>
+        <p ref={coordsRef}>X: 0 / Y: 0</p>
         <p>REVEALED: {revealed.toFixed(1)}%</p>
       </div>
 
@@ -432,19 +460,9 @@ export default function BrushCanvas() {
 
       <div
         ref={cursorRef}
-        className="pointer-events-none absolute top-0 left-0 z-30 opacity-0 transition-opacity duration-150 will-change-transform"
+        className="pointer-events-none absolute top-0 left-0 z-30 rounded-full border border-white opacity-0 mix-blend-difference transition-opacity duration-150 will-change-transform"
         aria-hidden
-      >
-        <svg width="18" height="26" viewBox="0 0 18 26" className="-translate-x-[1px] -translate-y-[1px]">
-          <path
-            d="M1 1 L1 21 L6 16.5 L9.5 24.5 L12.5 23.2 L9 15.3 L15.5 15.3 Z"
-            fill="#0a0a0a"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+      />
     </div>
   );
 }
