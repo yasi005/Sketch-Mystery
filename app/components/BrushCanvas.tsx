@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DrawHint, WelcomeSplash } from "./Onboarding";
 import { inkTile } from "./inkTile";
 
 type Point = { x: number; y: number };
@@ -212,10 +213,19 @@ export default function BrushCanvas() {
   const [activeId, setActiveId] = useState(SWATCHES[0].id);
   const [revealed, setRevealed] = useState(0);
   const [guide, setGuide] = useState(false);
+  const [splash, setSplash] = useState(true);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
   }, [activeId]);
+
+  // Welcome splash, then hand off to the peek / draw hint.
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ms = reduceMotion ? 500 : 2400;
+    const t = window.setTimeout(() => setSplash(false), ms);
+    return () => window.clearTimeout(t);
+  }, []);
 
   // Paper grain: the ink tile's noise and dust on cream.
   useEffect(() => {
@@ -223,6 +233,8 @@ export default function BrushCanvas() {
   }, []);
 
   useEffect(() => {
+    if (splash) return;
+
     const canvas = canvasRef.current!;
     const cursor = cursorRef.current!;
     const ctx = canvas.getContext("2d")!;
@@ -567,10 +579,12 @@ export default function BrushCanvas() {
       canvas.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [splash]);
 
   return (
     <div ref={rootRef} className="fixed inset-0 overflow-hidden select-none" style={{ backgroundColor: PAPER }}>
+      <WelcomeSplash visible={splash} />
+
       <svg className="absolute h-0 w-0" aria-hidden>
         {/* Gooey metaball: blur, snap alpha back to a hard edge, then lay the
             untouched source (stars and grain) back on top of the fused shape. */}
@@ -589,18 +603,7 @@ export default function BrushCanvas() {
         aria-label="Reversible page. Drag to paint it inside out, C clear, D peek, 1–8 change ink."
       />
 
-      <div
-        className={`pointer-events-none absolute top-[64%] left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-900/15 bg-white/60 py-2 pr-4 pl-2.5 font-mono text-[10px] tracking-[0.18em] w-max max-w-[calc(100vw-32px)] text-zinc-800 uppercase backdrop-blur-sm transition-all duration-700 ${
-          guide ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-        }`}
-        aria-hidden={!guide}
-      >
-        <span className="relative block h-4 w-4" aria-hidden>
-          <span className="absolute inset-0 rounded-full border border-zinc-900 motion-safe:animate-ping" />
-          <span className="absolute inset-[5px] rounded-full bg-zinc-900" />
-        </span>
-        Drag anywhere to turn the page inside out
-      </div>
+      <DrawHint visible={guide && !splash} onDismiss={() => setGuide(false)} />
 
       {/* Stamped once the page has finished brushing itself in. */}
       <p
