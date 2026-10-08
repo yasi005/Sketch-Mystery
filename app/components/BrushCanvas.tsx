@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import HelloDemo from "./HelloDemo";
+import { inkTile } from "./inkTile";
 
 type Point = { x: number; y: number };
 
-const MIN_WIDTH = 3;
-const MAX_WIDTH = 34;
+// MIN_WIDTH stays above what the goo threshold would swallow (~1.2× its blur).
+const MIN_WIDTH = 8;
+const MAX_WIDTH = 40;
 // Stroke distance (px) over which the brush ramps from narrow to full width.
 const RAMP_DISTANCE = 700;
 const COVERAGE_SCALE = 8;
+// Coverage (%) at which the page brushes the rest of itself in.
+const COMPLETE_AT = 60;
+// Self-brush timeline (ms): delay between bands, and one band's sweep.
+const FLOOD_STAGGER = 90;
+const FLOOD_SWEEP = 1100;
+// Peek timeline (ms): ghost brush sweeps, holds, page folds back.
+const PEEK_DRAW = 1700;
+const PEEK_HOLD = 2600;
+const PEEK_FOLD = 3300;
 
 type Stroke = {
   last: Point;
@@ -36,80 +46,161 @@ const SWATCHES: Swatch[] = [
   { id: "SPEC-08", name: "Monolith", hex: "#2C3034", nm: "480nm" },
 ];
 
-function RevealLayer() {
+// Side A of the reversible page: a sunlit day chart printed on cream.
+// It sits under the ink, so every stroke turns the page inside out onto
+// Side B (the night atlas in RevealLayer), which is printed in the paper
+// colour itself and so only shows where ink darkens the ground.
+const PAPER = "#EFE9DD";
+const SEPIA = "#2A1D14";
+const TERRA = "#C8643B";
+
+function FrontSide() {
   return (
-    <div
-      className="pointer-events-none absolute inset-0 overflow-hidden text-white"
-      aria-hidden
-    >
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ color: SEPIA }} aria-hidden>
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid slice"
         fill="none"
       >
-        <g stroke="#ffffff" strokeWidth="0.6" opacity="0.95">
-          <circle cx="720" cy="450" r="210" />
-          <circle cx="720" cy="450" r="320" />
-          <circle cx="720" cy="450" r="410" strokeDasharray="2 6" />
-          <ellipse cx="720" cy="450" rx="520" ry="180" />
-          <ellipse cx="720" cy="450" rx="180" ry="520" />
-          <line x1="720" y1="40" x2="720" y2="860" />
-          <line x1="80" y1="450" x2="1360" y2="450" />
-          <line x1="220" y1="120" x2="1220" y2="780" />
-          <line x1="1220" y1="120" x2="220" y2="780" />
+        <g stroke={SEPIA} strokeWidth="0.5" opacity="0.1">
+          {Array.from({ length: 11 }, (_, i) => (
+            <line key={i} x1={120 * (i + 1)} y1="0" x2={120 * (i + 1)} y2="900" />
+          ))}
         </g>
-        <g stroke="#ffffff" strokeWidth="0.45" opacity="0.75">
-          <path d="M720 450 L980 210 L1100 340 L920 520 Z" />
-          <path d="M720 450 L460 680 L340 540 L540 380 Z" />
-          <circle cx="980" cy="210" r="4" fill="#ffffff" stroke="none" />
-          <circle cx="1100" cy="340" r="3" fill="#ffffff" stroke="none" />
-          <circle cx="460" cy="680" r="3.5" fill="#ffffff" stroke="none" />
-          <circle cx="340" cy="540" r="2.5" fill="#ffffff" stroke="none" />
-          <circle cx="540" cy="380" r="3" fill="#ffffff" stroke="none" />
+        <circle cx="1060" cy="330" r="190" fill="#E9BC8E" />
+        <g stroke={TERRA} strokeWidth="0.8" opacity="0.6">
+          <circle cx="1060" cy="330" r="150" />
+          <circle cx="1060" cy="330" r="110" strokeDasharray="2 5" />
+          {Array.from({ length: 36 }, (_, i) => {
+            const a = (i * Math.PI) / 18;
+            const r0 = 214;
+            const r1 = i % 3 ? 232 : 256;
+            return (
+              <line
+                key={i}
+                x1={(1060 + r0 * Math.cos(a)).toFixed(1)}
+                y1={(330 + r0 * Math.sin(a)).toFixed(1)}
+                x2={(1060 + r1 * Math.cos(a)).toFixed(1)}
+                y2={(330 + r1 * Math.sin(a)).toFixed(1)}
+              />
+            );
+          })}
         </g>
-        <g
-          fill="#ffffff"
-          fontFamily="ui-monospace, monospace"
-          fontSize="9"
-          letterSpacing="0.12em"
-          opacity="0.85"
-        >
-          <text x="250" y="160">
-            RA 14h 39m
-          </text>
-          <text x="1080" y="200">
-            DEC −60° 50′
-          </text>
-          <text x="180" y="720">
-            ORBITAL PLANE 23.4°
-          </text>
-          <text x="1040" y="740">
-            λ 420–680
-          </text>
+        <g stroke={SEPIA} strokeWidth="0.7" opacity="0.55">
+          <line x1="0" y1="640" x2="1440" y2="640" />
+          <path d="M160 640 Q720 40 1280 640" strokeDasharray="3 7" />
+          <path d="M320 640 Q720 240 1120 640" strokeDasharray="1 5" />
+        </g>
+        <g fill={TERRA}>
+          <circle cx="720" cy="340" r="4" />
+          <circle cx="428" cy="440" r="3" />
+          <circle cx="1012" cy="440" r="3" />
+        </g>
+        <g fill={SEPIA} fontFamily="ui-monospace, monospace" fontSize="9" letterSpacing="0.14em" opacity="0.7">
+          <text x="730" y="332">SOLAR NOON 12:04</text>
+          <text x="1164" y="620">LAT 35°41′N</text>
+          <text x="120" y="620">SUNRISE 06:12</text>
+          <text x="1210" y="140">SIDE A</text>
         </g>
       </svg>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8">
-        <p className="font-sans text-[clamp(2.5rem,8vw,7rem)] font-bold leading-[0.9] tracking-[-0.06em] text-white">
-          VOID ATLAS
+      <div className="absolute top-[17%] left-7 md:left-10">
+        <p className="font-sans text-[clamp(2.2rem,6.5vw,5.5rem)] leading-[0.88] font-bold tracking-[-0.06em]">
+          LUMEN
+          <br />
+          <span style={{ color: TERRA }}>ATLAS</span>
         </p>
-        <p className="max-w-xl text-center font-sans text-[clamp(0.7rem,1.4vw,0.95rem)] font-medium leading-relaxed tracking-[0.28em] text-white uppercase">
-          Swiss editorial cartography of invisible orbits
-        </p>
-        <p className="mt-6 max-w-2xl text-center font-sans text-[clamp(0.65rem,1.1vw,0.8rem)] leading-[1.7] tracking-[0.04em] text-white/95">
-          Calibrate the ink. Draw across the field. Typography and wireframes
-          exist on the page at all times — they only appear where pigment densifies
-          the ground.
+        <p className="mt-4 max-w-[17rem] font-mono text-[10px] leading-relaxed tracking-[0.08em] uppercase opacity-70">
+          Side A — the daylight edition. A reversible page: paint over it to wear it inside out.
         </p>
       </div>
     </div>
   );
 }
 
+// Side B, the night atlas: a full-viewport bake of starlight ink with the
+// chart printed on it in the paper colour. The brush paints with this image,
+// so Side B exists only where the page has been painted, never on Side A.
+function drawSideB(c: HTMLCanvasElement, w: number, h: number, dpr: number, hex: string) {
+  c.width = Math.round(w * dpr);
+  c.height = Math.round(h * dpr);
+  const g = c.getContext("2d")!;
+  g.fillStyle = g.createPattern(inkTile(hex, dpr), "repeat")!;
+  g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = g.strokeStyle = PAPER;
+
+  // Chart art lives in a 1440×900 box, cropped to cover like `slice`.
+  const s = Math.max(w / 1440, h / 900);
+  g.setTransform(dpr * s, 0, 0, dpr * s, (dpr * (w - 1440 * s)) / 2, (dpr * (h - 900 * s)) / 2);
+  const stroke = (width: number, alpha: number, path: Path2D, dash: number[] = []) => {
+    g.lineWidth = width;
+    g.globalAlpha = alpha;
+    g.setLineDash(dash);
+    g.stroke(path);
+  };
+  const ring = (rx: number, ry = rx) => {
+    const p = new Path2D();
+    p.ellipse(720, 450, rx, ry, 0, 0, Math.PI * 2);
+    return p;
+  };
+  for (const r of [210, 320]) stroke(0.6, 0.95, ring(r));
+  stroke(0.6, 0.95, ring(410), [2, 6]);
+  stroke(0.6, 0.95, ring(520, 180));
+  stroke(0.6, 0.95, ring(180, 520));
+  stroke(0.6, 0.95, new Path2D("M720 40V860M80 450H1360M220 120L1220 780M1220 120L220 780"));
+  stroke(0.45, 0.75, new Path2D("M720 450L980 210L1100 340L920 520ZM720 450L460 680L340 540L540 380Z"));
+  for (const [x, y, r] of [[980, 210, 4], [1100, 340, 3], [460, 680, 3.5], [340, 540, 2.5], [540, 380, 3]]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 0.85;
+  g.font = "9px ui-monospace, monospace";
+  g.letterSpacing = "1.08px";
+  for (const [t, x, y] of [["RA 14h 39m", 250, 160], ["DEC −60° 50′", 1080, 200], ["ORBITAL PLANE 23.4°", 180, 720], ["λ 420–680", 1040, 740]] as const) {
+    g.fillText(t, x, y);
+  }
+
+  // Editorial type, centred on the viewport in CSS px.
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const sans = getComputedStyle(document.body).fontFamily;
+  const clampPx = (min: number, v: number, max: number) => Math.min(max, Math.max(min, v));
+  // Shrinks a size until every line fits the width (mobile).
+  const fit = (size: number, weight: number, spacing: number, lines: string[], max: number) => {
+    const set = (px: number) => {
+      g.font = `${weight} ${px}px ${sans}`;
+      g.letterSpacing = `${spacing * px}px`;
+    };
+    set(size);
+    const widest = Math.max(...lines.map((l) => g.measureText(l).width));
+    if (widest > max) set((size *= max / widest));
+    return size;
+  };
+  const title = fit(clampPx(40, w * 0.08, 112), 700, -0.06, ["VOID ATLAS"], w - 48);
+  const subLine = "SWISS EDITORIAL CARTOGRAPHY OF INVISIBLE ORBITS";
+  const sub = clampPx(11.2, w * 0.014, 15.2);
+  const body = ["Calibrate the ink. Draw across the field. Typography and wireframes exist on the page at all times —", "they only appear where pigment densifies the ground."];
+  const para = clampPx(10.4, w * 0.011, 12.8);
+  const top = h / 2 - (title * 0.9 + 12 + sub * 1.6 + 36 + para * 3.4) / 2;
+
+  g.globalAlpha = 1;
+  fit(title, 700, -0.06, ["VOID ATLAS"], w - 48);
+  g.fillText("VOID ATLAS", w / 2, top + title * 0.45);
+  const subY = top + title * 0.9 + 12 + sub * 0.8;
+  fit(sub, 500, 0.28, [subLine], w - 48);
+  g.fillText(subLine, w / 2, subY);
+  g.globalAlpha = 0.95;
+  const p = fit(para, 400, 0.04, body, Math.min(672, w - 48));
+  body.forEach((l, i) => g.fillText(l, w / 2, subY + sub * 0.8 + 36 + p * (0.85 + 1.7 * i)));
+}
+
 export default function BrushCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const coordsRef = useRef<HTMLParagraphElement>(null);
   const colorRef = useRef(SWATCHES[0].hex);
   const coverageRef = useRef<{
     grid: Uint8Array;
@@ -119,13 +210,17 @@ export default function BrushCanvas() {
   } | null>(null);
 
   const [activeId, setActiveId] = useState(SWATCHES[0].id);
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [revealed, setRevealed] = useState(0);
-  const [helloRun, setHelloRun] = useState(0);
+  const [guide, setGuide] = useState(false);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
   }, [activeId]);
+
+  // Paper grain: the ink tile's noise and dust on cream.
+  useEffect(() => {
+    rootRef.current!.style.backgroundImage = `url(${inkTile(PAPER).toDataURL()})`;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -134,6 +229,21 @@ export default function BrushCanvas() {
     let dpr = 1;
     let stroke: Stroke | null = null;
     let revealRaf = 0;
+    const sideB = document.createElement("canvas");
+    let ink = { key: "", pattern: null as CanvasPattern | null };
+
+    // Rebaked when the ink or the viewport changes.
+    // ponytail: ink laid before a resize keeps Side B at its old layout.
+    const inkPattern = () => {
+      const key = `${colorRef.current} ${canvas.width}x${canvas.height}`;
+      if (ink.key !== key) {
+        drawSideB(sideB, window.innerWidth, window.innerHeight, dpr, colorRef.current);
+        const pattern = ctx.createPattern(sideB, "no-repeat")!;
+        pattern.setTransform(new DOMMatrix().scale(1 / dpr));
+        ink = { key, pattern };
+      }
+      return ink.pattern!;
+    };
 
     const syncCoverageSize = (cssW: number, cssH: number) => {
       const cols = Math.max(1, Math.ceil(cssW / COVERAGE_SCALE));
@@ -176,6 +286,7 @@ export default function BrushCanvas() {
       if (!cov) return;
       const pct = (cov.painted / (cov.cols * cov.rows)) * 100;
       setRevealed(Math.min(100, pct));
+      if (pct >= COMPLETE_AT && !flooded) runFlood();
     };
 
     const resize = () => {
@@ -192,11 +303,12 @@ export default function BrushCanvas() {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(snapshot, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = colorRef.current;
       syncCoverageSize(cssW, cssH);
+      inkPattern();
     };
 
     const clear = () => {
+      stopFlood();
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -209,60 +321,106 @@ export default function BrushCanvas() {
       setRevealed(0);
     };
 
+    // Plain discs of pattern-filled ink; the #ink-goo filter on the canvas
+    // fuses them into crisp-edged metaballs.
     const stamp = (x: number, y: number, width: number) => {
-      ctx.fillStyle = colorRef.current;
-      const r = width / 2;
-      const roughness = Math.min(1, (width - MIN_WIDTH) / (MAX_WIDTH - MIN_WIDTH));
-
-      ctx.globalAlpha = 1;
+      ctx.fillStyle = inkPattern();
       ctx.beginPath();
-      ctx.arc(x, y, r * (1 - roughness * 0.18), 0, Math.PI * 2);
+      ctx.arc(x, y, width / 2, 0, Math.PI * 2);
       ctx.fill();
-
-      const grains = Math.round(4 + roughness * 22);
-      for (let i = 0; i < grains; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const d = r * (0.72 + Math.random() * (0.25 + roughness * 0.2));
-        const s = 0.4 + Math.random() * (0.6 + roughness * 1.6);
-        ctx.globalAlpha = 0.55 + Math.random() * 0.45;
-        ctx.beginPath();
-        ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, s, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
       markCoverage(x, y, width);
     };
 
-    const beginStroke = (p: Point, maxWidth = MAX_WIDTH) => {
-      stroke = { last: p, distance: 0, width: MIN_WIDTH, maxWidth };
+    const newStroke = (p: Point, maxWidth = MAX_WIDTH): Stroke => {
       stamp(p.x, p.y, MIN_WIDTH);
+      return { last: p, distance: 0, width: MIN_WIDTH, maxWidth };
     };
 
-    const extendStroke = (p: Point, pressure: number | null) => {
-      if (!stroke) return;
-      const dx = p.x - stroke.last.x;
-      const dy = p.y - stroke.last.y;
+    const beginStroke = (p: Point, maxWidth = MAX_WIDTH) => {
+      stroke = newStroke(p, maxWidth);
+    };
+
+    // Extends the user's stroke, or `s` for a ghost brush.
+    const extendStroke = (p: Point, pressure: number | null, s = stroke) => {
+      if (!s) return;
+      const dx = p.x - s.last.x;
+      const dy = p.y - s.last.y;
       const seg = Math.hypot(dx, dy);
       if (seg < 0.5) return;
 
-      const ramp = 1 - Math.pow(1 - Math.min(1, stroke.distance / RAMP_DISTANCE), 2);
+      const ramp = 1 - Math.pow(1 - Math.min(1, s.distance / RAMP_DISTANCE), 2);
       const target =
         pressure !== null
-          ? MIN_WIDTH + (stroke.maxWidth - MIN_WIDTH) * pressure * (0.4 + 0.6 * ramp)
-          : MIN_WIDTH + (stroke.maxWidth - MIN_WIDTH) * ramp * (1 - Math.min(0.35, seg / 180));
+          ? MIN_WIDTH + (s.maxWidth - MIN_WIDTH) * pressure * (0.4 + 0.6 * ramp)
+          : MIN_WIDTH + (s.maxWidth - MIN_WIDTH) * ramp * (1 - Math.min(0.35, seg / 180));
 
-      const startW = stroke.width;
+      const startW = s.width;
       const step = Math.max(0.6, Math.min(startW, target) * 0.22);
       const n = Math.ceil(seg / step);
       for (let i = 1; i <= n; i++) {
         const t = i / n;
-        const w = startW + (target - startW) * t;
-        stamp(stroke.last.x + dx * t, stroke.last.y + dy * t, w);
+        // Slow swell along the stroke so the ink beads and puddles.
+        const swell = 1 + 0.22 * Math.sin((s.distance + seg * t) / 26);
+        stamp(s.last.x + dx * t, s.last.y + dy * t, (startW + (target - startW) * t) * swell);
       }
 
-      stroke.distance += seg;
-      stroke.width = startW + (target - startW) * 0.35;
-      stroke.last = p;
+      s.distance += seg;
+      s.width = startW + (target - startW) * 0.35;
+      s.last = p;
+    };
+
+    // Past COMPLETE_AT the page finishes turning itself: one ghost brush per
+    // band, staggered top to bottom and alternating direction, sweeps the
+    // whole viewport with the real brush; then any pinholes are filled.
+    let floodRaf = 0;
+    let flooded = false;
+    const stopFlood = () => {
+      cancelAnimationFrame(floodRaf);
+      floodRaf = 0;
+      flooded = false;
+    };
+
+    const runFlood = () => {
+      flooded = true;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const width = Math.max(120, Math.min(200, h / 4));
+      const band = width * 0.42;
+      const brushes = Array.from({ length: Math.ceil(h / band) + 1 }, (_, i) => ({
+        start: i * FLOOD_STAGGER,
+        s: null as Stroke | null,
+        // Starts off-screen so the brush has ramped to full width on entry.
+        at: (u: number) => ({
+          x: i % 2 ? w * (1.35 - 1.7 * u) : w * (-0.35 + 1.7 * u),
+          y: i * band + 14 * Math.sin(u * Math.PI * 2 + i),
+        }),
+      }));
+      const end = (brushes.length - 1) * FLOOD_STAGGER + FLOOD_SWEEP;
+      const t0 = performance.now();
+
+      const tick = (now: number) => {
+        const t = now - t0;
+        for (const b of brushes) {
+          if (t < b.start) break;
+          const p = b.at(Math.min(1, (t - b.start) / FLOOD_SWEEP));
+          if (b.s) extendStroke(p, null, b.s);
+          else b.s = newStroke(p, width);
+        }
+        if (t >= end) {
+          ctx.fillStyle = inkPattern();
+          ctx.fillRect(0, 0, w, h);
+          const cov = coverageRef.current;
+          if (cov) {
+            cov.grid.fill(1);
+            cov.painted = cov.grid.length;
+          }
+          floodRaf = 0;
+        } else {
+          floodRaf = requestAnimationFrame(tick);
+        }
+        publishReveal();
+      };
+      floodRaf = requestAnimationFrame(tick);
     };
 
     const endStroke = () => {
@@ -271,19 +429,60 @@ export default function BrushCanvas() {
     };
 
     const moveCursor = (p: Point, pressed: boolean) => {
-      cursor.style.transform = `translate(${p.x}px, ${p.y}px) scale(${pressed ? 0.92 : 1})`;
+      // Ring matches the live brush width while drawing, full width on hover.
+      const size = pressed && stroke ? stroke.width : MAX_WIDTH;
+      cursor.style.transform = `translate(${p.x - size / 2}px, ${p.y - size / 2}px)`;
+      cursor.style.width = cursor.style.height = `${size}px`;
       cursor.style.opacity = "1";
-      setCoords({ x: Math.round(p.x), y: Math.round(p.y) });
+      // Written straight to the DOM: a React re-render per pointermove is jank.
+      coordsRef.current!.textContent = `X: ${Math.round(p.x)} / Y: ${Math.round(p.y)}`;
     };
 
-    // The "hello" demo lives in its own SVG layer (HelloDemo), so it can
-    // fade out on its own without touching what the user has painted.
-    const stopDemo = () => setHelloRun(0);
+    // The peek: a ghost brush sweeps one wave through the middle of the page,
+    // turning a slice of it inside out, holds, then the page folds back to
+    // Side A and the guide appears.
+    let demoRaf = 0;
+    const stopDemo = () => {
+      cancelAnimationFrame(demoRaf);
+      demoRaf = 0;
+      canvas.style.transition = canvas.style.opacity = "";
+    };
 
     const runDemo = () => {
+      stopDemo();
       clear();
-      endStroke();
-      setHelloRun((n) => n + 1);
+      stroke = null;
+      setGuide(false);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const at = (u: number) => ({
+        x: w * (0.1 + 0.8 * u),
+        y: h * (0.5 + 0.14 * Math.sin(u * Math.PI * 1.6 + 0.6)),
+      });
+      const start = performance.now();
+      beginStroke(at(0), Math.min(110, h * 0.14));
+
+      const tick = (now: number) => {
+        const t = now - start;
+        if (t < PEEK_DRAW) {
+          const u = t / PEEK_DRAW;
+          const p = at(u * u * (3 - 2 * u));
+          extendStroke(p, null);
+          moveCursor(p, true);
+        } else if (t < PEEK_FOLD) {
+          stroke = null;
+          cursor.style.opacity = "0";
+          canvas.style.transition = `opacity ${PEEK_FOLD - PEEK_HOLD}ms ease-in`;
+          if (t >= PEEK_HOLD) canvas.style.opacity = "0";
+        } else {
+          clear();
+          stopDemo();
+          setGuide(true);
+          return;
+        }
+        demoRaf = requestAnimationFrame(tick);
+      };
+      demoRaf = requestAnimationFrame(tick);
     };
 
     const penPressure = (e: PointerEvent) =>
@@ -291,7 +490,11 @@ export default function BrushCanvas() {
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
-      stopDemo();
+      if (demoRaf) {
+        stopDemo();
+        clear();
+      }
+      setGuide(false);
       canvas.setPointerCapture(e.pointerId);
       beginStroke({ x: e.clientX, y: e.clientY });
       moveCursor({ x: e.clientX, y: e.clientY }, true);
@@ -325,6 +528,7 @@ export default function BrushCanvas() {
       if (e.key === "c" || e.key === "C") {
         stopDemo();
         clear();
+        setGuide(true);
       } else if (e.key === "d" || e.key === "D") {
         runDemo();
       } else if (e.key >= "1" && e.key <= "8") {
@@ -333,6 +537,11 @@ export default function BrushCanvas() {
     };
 
     resize();
+    // Webfonts may land after first paint; redraw Side B with them.
+    document.fonts.ready.then(() => {
+      ink.key = "";
+      inkPattern();
+    });
     window.addEventListener("resize", resize);
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
@@ -343,10 +552,12 @@ export default function BrushCanvas() {
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Deferred a frame so the state update happens outside the effect body.
-    const introFrame = reduceMotion ? 0 : requestAnimationFrame(runDemo);
+    const introFrame = requestAnimationFrame(reduceMotion ? () => setGuide(true) : runDemo);
 
     return () => {
       cancelAnimationFrame(introFrame);
+      cancelAnimationFrame(demoRaf);
+      cancelAnimationFrame(floodRaf);
       cancelAnimationFrame(revealRaf);
       window.removeEventListener("resize", resize);
       canvas.removeEventListener("pointerdown", onDown);
@@ -359,30 +570,63 @@ export default function BrushCanvas() {
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-white select-none">
+    <div ref={rootRef} className="fixed inset-0 overflow-hidden select-none" style={{ backgroundColor: PAPER }}>
+      <svg className="absolute h-0 w-0" aria-hidden>
+        {/* Gooey metaball: blur, snap alpha back to a hard edge, then lay the
+            untouched source (stars and grain) back on top of the fused shape. */}
+        <filter id="ink-goo" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+          <feColorMatrix in="blur" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7" result="goo" />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+      </svg>
+
+      <FrontSide />
       <canvas
         ref={canvasRef}
+        style={{ filter: "url(#ink-goo)" }}
         className="absolute inset-0 h-full w-full cursor-none touch-none"
-        aria-label="Ink reveal canvas. Drag to paint, C clear, D demo, 1–8 change ink."
+        aria-label="Reversible page. Drag to paint it inside out, C clear, D peek, 1–8 change ink."
       />
 
-      <HelloDemo run={helloRun} color={SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex} />
+      <div
+        className={`pointer-events-none absolute top-[64%] left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-full border border-zinc-900/15 bg-white/60 py-2 pr-4 pl-2.5 font-mono text-[10px] tracking-[0.18em] w-max max-w-[calc(100vw-32px)] text-zinc-800 uppercase backdrop-blur-sm transition-all duration-700 ${
+          guide ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        }`}
+        aria-hidden={!guide}
+      >
+        <span className="relative block h-4 w-4" aria-hidden>
+          <span className="absolute inset-0 rounded-full border border-zinc-900 motion-safe:animate-ping" />
+          <span className="absolute inset-[5px] rounded-full bg-zinc-900" />
+        </span>
+        Drag anywhere to turn the page inside out
+      </div>
 
-      <RevealLayer />
+      {/* Stamped once the page has finished brushing itself in. */}
+      <p
+        className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-300 duration-700 ${
+          revealed >= 100 ? "scale-100 opacity-100" : "scale-125 opacity-0"
+        }`}
+        aria-live="polite"
+      >
+        {revealed >= 100 ? "ATLAS COMPLETE" : ""}
+      </p>
 
       <header className="pointer-events-none absolute top-7 left-7 z-10 md:top-9 md:left-10">
-        <h1 className="font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] text-zinc-900">
+        <h1 className={`font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] transition-colors duration-[1400ms] ${
+            revealed >= COMPLETE_AT ? "text-white" : "text-zinc-900"
+          }`}>
           EXPLORE THE SPACE
         </h1>
       </header>
 
       <div
-        className="pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider text-zinc-500 md:right-10 md:bottom-8"
+        className={`pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider transition-colors duration-[1400ms] md:right-10 md:bottom-8 ${
+          revealed >= COMPLETE_AT ? "text-white/70" : "text-zinc-500"
+        }`}
         aria-live="polite"
       >
-        <p>
-          X: {coords.x} / Y: {coords.y}
-        </p>
+        <p ref={coordsRef}>X: 0 / Y: 0</p>
         <p>REVEALED: {revealed.toFixed(1)}%</p>
       </div>
 
@@ -417,25 +661,15 @@ export default function BrushCanvas() {
           </div>
         </div>
         <p className="mt-2 text-center font-mono text-[9px] tracking-wide text-zinc-400">
-          drag · C clear · D demo · 1–8 ink
+          drag · C clear · D peek · 1–8 ink
         </p>
       </div>
 
       <div
         ref={cursorRef}
-        className="pointer-events-none absolute top-0 left-0 z-30 opacity-0 transition-opacity duration-150 will-change-transform"
+        className="pointer-events-none absolute top-0 left-0 z-30 rounded-full border border-zinc-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform"
         aria-hidden
-      >
-        <svg width="18" height="26" viewBox="0 0 18 26" className="-translate-x-[1px] -translate-y-[1px]">
-          <path
-            d="M1 1 L1 21 L6 16.5 L9.5 24.5 L12.5 23.2 L9 15.3 L15.5 15.3 Z"
-            fill="#0a0a0a"
-            stroke="#ffffff"
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+      />
     </div>
   );
 }
