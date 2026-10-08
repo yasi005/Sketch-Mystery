@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DrawHint, WelcomeSplash } from "./Onboarding";
 import { inkTile } from "./inkTile";
 
@@ -214,15 +214,17 @@ export default function BrushCanvas() {
   const [revealed, setRevealed] = useState(0);
   const [guide, setGuide] = useState(false);
   const [splash, setSplash] = useState(true);
+  const dismissGuide = useCallback(() => setGuide(false), []);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
   }, [activeId]);
 
-  // Welcome splash, then hand off to the peek / draw hint.
+  // Welcome splash (typed Hello → Welcome), then peek / draw hint.
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const ms = reduceMotion ? 500 : 2400;
+    // Typing Hello (~0.5s) + gap + Welcome (~0.9s) + hold before fade.
+    const ms = reduceMotion ? 600 : 3800;
     const t = window.setTimeout(() => setSplash(false), ms);
     return () => window.clearTimeout(t);
   }, []);
@@ -603,7 +605,7 @@ export default function BrushCanvas() {
         aria-label="Reversible page. Drag to paint it inside out, C clear, D peek, 1–8 change ink."
       />
 
-      <DrawHint visible={guide && !splash} onDismiss={() => setGuide(false)} />
+      <DrawHint visible={guide && !splash} onDismiss={dismissGuide} />
 
       {/* Stamped once the page has finished brushing itself in. */}
       <p

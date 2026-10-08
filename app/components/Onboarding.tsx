@@ -1,33 +1,125 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+const HELLO = "Hello";
+const WELCOME = "Welcome to Brushiing";
+
 type SplashProps = {
   visible: boolean;
 };
 
-/** Full-viewport welcome: Hello → Welcome to Brushiing */
+/** Full-viewport welcome with typed Hello → Welcome to Brushiing. */
 export function WelcomeSplash({ visible }: SplashProps) {
+  const [hello, setHello] = useState("");
+  const [welcome, setWelcome] = useState("");
+  const [phase, setPhase] = useState<"hello" | "welcome" | "hold">("hello");
+  const [exiting, setExiting] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setExiting(true);
+      return;
+    }
+    setExiting(false);
+    setHello("");
+    setWelcome("");
+    setPhase("hello");
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setHello(HELLO);
+      setWelcome(WELCOME);
+      setPhase("hold");
+      return;
+    }
+
+    let i = 0;
+    let j = 0;
+    let helloTimer = 0;
+    let welcomeTimer = 0;
+    let gapTimer = 0;
+
+    helloTimer = window.setInterval(() => {
+      i += 1;
+      setHello(HELLO.slice(0, i));
+      if (i >= HELLO.length) {
+        window.clearInterval(helloTimer);
+        gapTimer = window.setTimeout(() => {
+          setPhase("welcome");
+          welcomeTimer = window.setInterval(() => {
+            j += 1;
+            setWelcome(WELCOME.slice(0, j));
+            if (j >= WELCOME.length) {
+              window.clearInterval(welcomeTimer);
+              setPhase("hold");
+            }
+          }, 42);
+        }, 280);
+      }
+    }, 90);
+
+    return () => {
+      window.clearInterval(helloTimer);
+      window.clearInterval(welcomeTimer);
+      window.clearTimeout(gapTimer);
+    };
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) setExiting(true);
+  }, [visible]);
+
+  const show = visible || exiting;
+
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-700 ease-out ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-opacity duration-700 ease-out ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       style={{ backgroundColor: "#EFE9DD" }}
-      aria-hidden={!visible}
+      aria-hidden={!show}
       aria-busy={visible}
+      onTransitionEnd={() => {
+        if (!visible) setExiting(false);
+      }}
     >
       <div
-        className={`flex flex-col items-center gap-3 text-center transition-all duration-700 ${
-          visible ? "translate-y-0 scale-100" : "translate-y-3 scale-[0.98]"
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(200,100,59,0.14), transparent 70%)",
+        }}
+        aria-hidden
+      />
+
+      <div
+        className={`relative flex flex-col items-center gap-4 px-6 text-center transition-all duration-700 ${
+          visible ? "translate-y-0 scale-100" : "translate-y-4 scale-[0.97]"
         }`}
       >
-        <p className="font-sans text-[clamp(3rem,12vw,6.5rem)] font-bold leading-none tracking-[-0.07em] text-zinc-900">
-          Hello
+        <p
+          className={`font-sans text-[clamp(3rem,12vw,6.5rem)] font-bold leading-none tracking-[-0.07em] text-zinc-900 motion-safe:animate-[splash-rise_0.7s_ease-out] ${
+            phase !== "hello" ? "opacity-100" : "opacity-100"
+          }`}
+        >
+          {hello}
+          {phase === "hello" && (
+            <span className="ml-1 inline-block h-[0.85em] w-[0.08em] translate-y-[0.06em] bg-zinc-900 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
+          )}
         </p>
-        <p className="font-mono text-[11px] tracking-[0.32em] text-zinc-600 uppercase">
-          Welcome to Brushiing
+
+        <p className="min-h-[1.25rem] font-mono text-[clamp(10px,2.4vw,13px)] tracking-[0.28em] text-zinc-600 uppercase">
+          {welcome}
+          {phase === "welcome" && (
+            <span className="ml-1 inline-block h-[0.9em] w-[0.45em] translate-y-[0.05em] bg-[#C8643B]/80 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
+          )}
         </p>
+
         <span
-          className="mt-8 h-px w-16 origin-center bg-zinc-900/25 motion-safe:animate-pulse"
+          className={`mt-6 h-px bg-zinc-900/30 transition-all duration-700 ease-out ${
+            phase === "hold" ? "w-20 opacity-100" : "w-0 opacity-0"
+          }`}
           aria-hidden
         />
       </div>
@@ -40,46 +132,79 @@ type HintProps = {
   onDismiss: () => void;
 };
 
-/** Attractive popup that explains the reversible page and invites drawing. */
+/** Full-screen blurred overlay; auto-fades after 3s, or close via ×. */
 export function DrawHint({ visible, onDismiss }: HintProps) {
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setShown(false);
+      return;
+    }
+    // Enter on next frame so the fade-in runs.
+    const enter = requestAnimationFrame(() => setShown(true));
+    const auto = window.setTimeout(() => {
+      setShown(false);
+      window.setTimeout(onDismiss, 450);
+    }, 3000);
+    return () => {
+      cancelAnimationFrame(enter);
+      window.clearTimeout(auto);
+    };
+  }, [visible, onDismiss]);
+
+  const close = () => {
+    setShown(false);
+    window.setTimeout(onDismiss, 450);
+  };
+
+  if (!visible && !shown) return null;
+
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-[58%] z-40 flex justify-center px-4 transition-all duration-700 ${
-        visible
-          ? "translate-y-0 opacity-100"
-          : "pointer-events-none translate-y-3 opacity-0"
+      className={`fixed inset-0 z-40 flex items-center justify-center px-6 transition-opacity duration-500 ease-out ${
+        shown ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       role="dialog"
+      aria-modal="true"
       aria-label="How to draw"
-      aria-hidden={!visible}
+      aria-hidden={!shown}
     >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-[#2A1D14]/35 backdrop-blur-md"
+        aria-label="Dismiss hint"
+        onClick={close}
+      />
+
       <div
-        className={`w-full max-w-[340px] rounded-sm border border-zinc-900/12 bg-[#EFE9DD]/92 px-5 py-4 shadow-[0_16px_48px_rgba(42,29,20,0.12)] backdrop-blur-md ${
-          visible ? "pointer-events-auto" : "pointer-events-none"
+        className={`relative z-10 flex max-w-[28rem] flex-col items-center text-center transition-all duration-500 ease-out ${
+          shown ? "translate-y-0 scale-100" : "translate-y-3 scale-[0.98]"
         }`}
       >
-        <div className="mb-3 flex items-center gap-2.5">
-          <span className="relative block h-3.5 w-3.5 shrink-0" aria-hidden>
-            <span className="absolute inset-0 rounded-full border border-[#C8643B] motion-safe:animate-ping" />
-            <span className="absolute inset-[4px] rounded-full bg-[#C8643B]" />
-          </span>
-          <p className="font-sans text-[15px] font-bold tracking-[-0.03em] text-zinc-900">
-            Drag to turn the page
-          </p>
-        </div>
-        <p className="font-mono text-[10px] leading-relaxed tracking-[0.04em] text-zinc-600">
-          This is a reversible atlas. Paint anywhere and Side A flips into the night chart —
-          typography and orbits only appear where your ink lands.
-        </p>
         <button
           type="button"
-          onClick={onDismiss}
-          className="mt-4 w-full rounded-sm bg-zinc-900 px-3 py-2.5 font-mono text-[10px] tracking-[0.2em] text-[#EFE9DD] uppercase transition-colors hover:bg-zinc-800"
+          onClick={close}
+          className="absolute -top-10 right-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/10 font-mono text-lg leading-none text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20"
+          aria-label="Close"
         >
-          Start drawing
+          ×
         </button>
-        <p className="mt-2.5 text-center font-mono text-[9px] tracking-wide text-zinc-400">
-          or just drag · C clear · D peek
+
+        <span className="relative mb-5 block h-3.5 w-3.5" aria-hidden>
+          <span className="absolute inset-0 rounded-full border border-[#C8643B] motion-safe:animate-ping" />
+          <span className="absolute inset-[4px] rounded-full bg-[#C8643B]" />
+        </span>
+
+        <p className="font-sans text-[clamp(1.4rem,4vw,2rem)] font-bold tracking-[-0.04em] text-white">
+          Drag to turn the page
+        </p>
+        <p className="mt-3 max-w-[22rem] font-mono text-[11px] leading-relaxed tracking-[0.06em] text-white/75">
+          Paint anywhere — Side A flips into the night chart. Typography and orbits only appear
+          where your ink lands.
+        </p>
+        <p className="mt-6 font-mono text-[9px] tracking-[0.22em] text-white/45 uppercase">
+          closes in 3s · or tap ×
         </p>
       </div>
     </div>
