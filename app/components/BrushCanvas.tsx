@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import CalibrationDock from "./CalibrationDock";
 import { DrawHint, WelcomeSplash } from "./Onboarding";
 import { inkTile } from "./inkTile";
 
@@ -36,24 +37,22 @@ type Swatch = {
   nm: string;
 };
 
-// Mineral inks — deep enough for Side B to read, far apart in hue so the
-// dock feels like a pigment tray, not eight near-blacks.
+// Rich nudes — soft, not neon, but each hue clearly its own (rose, cognac, olive…).
 const SWATCHES: Swatch[] = [
-  { id: "SPEC-01", name: "Graphite", hex: "#14161C", nm: "555nm" },
-  { id: "SPEC-02", name: "Lapis", hex: "#0F2A6B", nm: "470nm" },
-  { id: "SPEC-03", name: "Viridian", hex: "#0C3D36", nm: "510nm" },
-  { id: "SPEC-04", name: "Carmine", hex: "#6E1230", nm: "650nm" },
-  { id: "SPEC-05", name: "Amethyst", hex: "#2B0F5C", nm: "400nm" },
-  { id: "SPEC-06", name: "Amber", hex: "#5C2E0A", nm: "590nm" },
-  { id: "SPEC-07", name: "Cerulean", hex: "#0A3D5C", nm: "490nm" },
-  { id: "SPEC-08", name: "Magenta", hex: "#4A1040", nm: "380nm" },
+  { id: "SPEC-01", name: "Cacao", hex: "#3B2418", nm: "555nm" },
+  { id: "SPEC-02", name: "Rosewood", hex: "#7A3E45", nm: "625nm" },
+  { id: "SPEC-03", name: "Cognac", hex: "#8B4A22", nm: "595nm" },
+  { id: "SPEC-04", name: "Terracotta", hex: "#8B3E2F", nm: "615nm" },
+  { id: "SPEC-05", name: "Plum", hex: "#5A3048", nm: "410nm" },
+  { id: "SPEC-06", name: "Olive", hex: "#4A4F2E", nm: "545nm" },
+  { id: "SPEC-07", name: "Camel", hex: "#6E4E32", nm: "580nm" },
+  { id: "SPEC-08", name: "Greige", hex: "#4A4548", nm: "500nm" },
 ];
 
-// Side A: cool chalk paper + navy chart + coral signal accent.
-// Ink turns the page inside out onto Side B (night atlas in paper colour).
-const PAPER = "#E6EDF2";
-const SEPIA = "#152033";
-const TERRA = "#FF6B4A";
+// Side A page (unchanged look — not part of the ink tray).
+const PAPER = "#EFE9DD";
+const SEPIA = "#2A1D14";
+const TERRA = "#C8643B";
 
 function FrontSide() {
   return (
@@ -69,7 +68,7 @@ function FrontSide() {
             <line key={i} x1={120 * (i + 1)} y1="0" x2={120 * (i + 1)} y2="900" />
           ))}
         </g>
-        <circle cx="1060" cy="330" r="190" fill="#B8D4E8" />
+        <circle cx="1060" cy="330" r="190" fill="#E9BC8E" />
         <g stroke={TERRA} strokeWidth="0.8" opacity="0.6">
           <circle cx="1060" cy="330" r="150" />
           <circle cx="1060" cy="330" r="110" strokeDasharray="2 5" />
@@ -203,6 +202,8 @@ export default function BrushCanvas() {
   const rootRef = useRef<HTMLDivElement>(null);
   const coordsRef = useRef<HTMLParagraphElement>(null);
   const colorRef = useRef(SWATCHES[0].hex);
+  const clearAction = useRef<() => void>(() => {});
+  const peekAction = useRef<() => void>(() => {});
   const coverageRef = useRef<{
     grid: Uint8Array;
     cols: number;
@@ -215,6 +216,8 @@ export default function BrushCanvas() {
   const [guide, setGuide] = useState(false);
   const [splash, setSplash] = useState(true);
   const dismissGuide = useCallback(() => setGuide(false), []);
+  const handleClear = useCallback(() => clearAction.current(), []);
+  const handlePeek = useCallback(() => peekAction.current(), []);
 
   useEffect(() => {
     colorRef.current = SWATCHES.find((s) => s.id === activeId)?.hex ?? SWATCHES[0].hex;
@@ -537,14 +540,23 @@ export default function BrushCanvas() {
       if (!stroke) cursor.style.opacity = "0";
     };
 
+    const doClear = () => {
+      stopDemo();
+      clear();
+      setGuide(true);
+    };
+    const doPeek = () => {
+      runDemo();
+    };
+    clearAction.current = doClear;
+    peekAction.current = doPeek;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "c" || e.key === "C") {
-        stopDemo();
-        clear();
-        setGuide(true);
+        doClear();
       } else if (e.key === "d" || e.key === "D") {
-        runDemo();
+        doPeek();
       } else if (e.key >= "1" && e.key <= "8") {
         setActiveId(SWATCHES[Number(e.key) - 1].id);
       }
@@ -621,20 +633,20 @@ export default function BrushCanvas() {
         {revealed >= 100 ? "ATLAS COMPLETE" : ""}
       </p>
 
-      <header className="pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 sm:top-[max(1.75rem,env(safe-area-inset-top))] sm:left-[max(1.75rem,env(safe-area-inset-left))] md:top-[max(2.25rem,env(safe-area-inset-top))] md:left-[max(2.5rem,env(safe-area-inset-left))]">
+      <header className="pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 max-w-[60%] sm:top-[max(1.75rem,env(safe-area-inset-top))] sm:left-[max(1.75rem,env(safe-area-inset-left))] md:top-[max(2.25rem,env(safe-area-inset-top))] md:left-[max(2.5rem,env(safe-area-inset-left))]">
         <h1
           className={`font-sans text-[clamp(0.95rem,3.6vw,1.55rem)] font-bold tracking-[-0.04em] transition-colors duration-[1400ms] ${
-            revealed >= COMPLETE_AT ? "text-white" : "text-zinc-900"
+            revealed >= COMPLETE_AT ? "text-white" : "text-stone-900"
           }`}
         >
           EXPLORE THE SPACE
         </h1>
       </header>
 
-      {/* Mobile: top-right under header so it never sits on the dock. */}
+      {/* Desktop telemetry — kept light/simple; mobile uses Menu instead */}
       <div
-        className={`pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-10 text-right font-mono text-[8px] leading-relaxed tracking-wider transition-colors duration-[1400ms] sm:text-[9px] md:top-auto md:right-[max(2.5rem,env(safe-area-inset-right))] md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:text-left ${
-          revealed >= COMPLETE_AT ? "text-white/70" : "text-zinc-500"
+        className={`pointer-events-none absolute right-[max(1.5rem,env(safe-area-inset-right))] bottom-[max(8.5rem,calc(env(safe-area-inset-bottom)+7.5rem))] z-10 hidden text-right font-mono text-[11px] leading-relaxed tracking-wider transition-colors duration-[1400ms] md:block ${
+          revealed >= COMPLETE_AT ? "text-white/70" : "text-stone-500"
         }`}
         aria-live="polite"
       >
@@ -642,49 +654,28 @@ export default function BrushCanvas() {
         <p>REVEALED: {revealed.toFixed(1)}%</p>
       </div>
 
-      <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-20 w-[min(96vw,420px)] -translate-x-1/2 px-1 sm:bottom-[max(1.75rem,env(safe-area-inset-bottom))] sm:w-[min(92vw,420px)] md:bottom-[max(2.25rem,env(safe-area-inset-bottom))]">
-        <div className="rounded-sm border border-zinc-900/10 bg-white/55 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-3 sm:py-2.5">
-          <div className="flex items-end justify-between gap-0.5 sm:gap-1.5">
-            {SWATCHES.map((swatch) => {
-              const active = swatch.id === activeId;
-              const shortId = swatch.id.replace("SPEC-", "");
-              return (
-                <button
-                  key={swatch.id}
-                  type="button"
-                  onClick={() => setActiveId(swatch.id)}
-                  className="group flex min-h-11 flex-1 flex-col items-center justify-end gap-1 outline-none touch-manipulation sm:min-h-0 sm:gap-1.5"
-                  aria-label={`${swatch.name} ${swatch.hex}`}
-                  aria-pressed={active}
-                >
-                  <span
-                    className={`block w-2 rounded-[1px] transition-transform duration-200 sm:w-[10px] ${
-                      active ? "-translate-y-0.5 h-8 ring-1 ring-zinc-900/40 sm:h-9" : "h-6 sm:h-7"
-                    }`}
-                    style={{ backgroundColor: swatch.hex }}
-                  />
-                  <span className="flex flex-col items-center font-mono text-[6px] leading-tight tracking-wide text-zinc-500 sm:text-[7px]">
-                    <span className={active ? "text-zinc-800" : ""}>
-                      <span className="sm:hidden">{shortId}</span>
-                      <span className="hidden sm:inline">{swatch.id}</span>
-                    </span>
-                    <span className="hidden sm:inline">{swatch.hex}</span>
-                    <span className="hidden md:inline">{swatch.nm}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <p className="mt-1.5 text-center font-mono text-[8px] tracking-wide text-zinc-400 sm:mt-2 sm:text-[9px]">
-          <span className="sm:hidden">drag · C clear · D peek</span>
-          <span className="hidden sm:inline">drag · C clear · D peek · 1–8 ink</span>
-        </p>
-      </div>
+      {/* Mobile revealed % — top center, out of the menu's way */}
+      <p
+        className={`pointer-events-none absolute top-[max(1.15rem,env(safe-area-inset-top))] left-1/2 z-10 -translate-x-1/2 font-mono text-[11px] tracking-wider md:hidden ${
+          revealed >= COMPLETE_AT ? "text-white/70" : "text-stone-500"
+        }`}
+        aria-live="polite"
+      >
+        {revealed.toFixed(1)}%
+      </p>
+
+      <CalibrationDock
+        swatches={SWATCHES}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClear={handleClear}
+        onPeek={handlePeek}
+        accent={TERRA}
+      />
 
       <div
         ref={cursorRef}
-        className="pointer-events-none absolute top-0 left-0 z-30 hidden rounded-full border border-zinc-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform md:block"
+        className="pointer-events-none absolute top-0 left-0 z-30 hidden rounded-full border border-stone-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform md:block"
         aria-hidden
       />
     </div>

@@ -77,7 +77,7 @@ export function WelcomeSplash({ visible }: SplashProps) {
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden px-4 transition-opacity duration-700 ease-out sm:px-6 ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
-      style={{ backgroundColor: "#E6EDF2" }}
+      style={{ backgroundColor: "#EFE9DD" }}
       aria-hidden={!show}
       aria-busy={visible}
       onTransitionEnd={() => {
@@ -85,10 +85,10 @@ export function WelcomeSplash({ visible }: SplashProps) {
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-50"
+        className="pointer-events-none absolute inset-0 opacity-45"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(255,107,74,0.16), transparent 70%)",
+            "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(200,100,59,0.14), transparent 70%)",
         }}
         aria-hidden
       />
@@ -108,12 +108,12 @@ export function WelcomeSplash({ visible }: SplashProps) {
         <p className="min-h-[1.25rem] max-w-full break-words font-mono text-[clamp(9px,2.8vw,13px)] tracking-[0.14em] text-zinc-600 uppercase sm:tracking-[0.28em]">
           {welcome}
           {phase === "welcome" && (
-            <span className="ml-1 inline-block h-[0.9em] w-[0.45em] translate-y-[0.05em] bg-[#FF6B4A]/90 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
+            <span className="ml-1 inline-block h-[0.9em] w-[0.45em] translate-y-[0.05em] bg-[#C8643B] align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
           )}
         </p>
 
         <span
-          className={`mt-4 h-px bg-[#152033]/30 transition-all duration-700 ease-out sm:mt-6 ${
+          className={`mt-4 h-px bg-stone-900/25 transition-all duration-700 ease-out sm:mt-6 ${
             phase === "hold" ? "w-16 opacity-100 sm:w-20" : "w-0 opacity-0"
           }`}
           aria-hidden
@@ -167,7 +167,7 @@ export function DrawHint({ visible, onDismiss }: HintProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-[#152033]/40 backdrop-blur-md"
+        className="absolute inset-0 cursor-default bg-stone-900/40 backdrop-blur-md"
         aria-label="Dismiss hint"
         onClick={close}
       />
@@ -187,8 +187,8 @@ export function DrawHint({ visible, onDismiss }: HintProps) {
         </button>
 
         <span className="relative mb-4 block h-3.5 w-3.5 sm:mb-5" aria-hidden>
-          <span className="absolute inset-0 rounded-full border border-[#FF6B4A] motion-safe:animate-ping" />
-          <span className="absolute inset-[4px] rounded-full bg-[#FF6B4A]" />
+          <span className="absolute inset-0 rounded-full border border-[#C8643B] motion-safe:animate-ping" />
+          <span className="absolute inset-[4px] rounded-full bg-[#C8643B]" />
         </span>
 
         <p className="font-sans text-[clamp(1.25rem,5.5vw,2rem)] font-bold tracking-[-0.04em] text-white">
