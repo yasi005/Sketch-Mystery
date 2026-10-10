@@ -74,10 +74,10 @@ export function WelcomeSplash({ visible }: SplashProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-opacity duration-700 ease-out ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden px-4 transition-opacity duration-700 ease-out sm:px-6 ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
-      style={{ backgroundColor: "#EFE9DD" }}
+      style={{ backgroundColor: "#E6EDF2" }}
       aria-hidden={!show}
       aria-busy={visible}
       onTransitionEnd={() => {
@@ -85,40 +85,36 @@ export function WelcomeSplash({ visible }: SplashProps) {
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
+        className="pointer-events-none absolute inset-0 opacity-50"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(200,100,59,0.14), transparent 70%)",
+            "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(255,107,74,0.16), transparent 70%)",
         }}
         aria-hidden
       />
 
       <div
-        className={`relative flex flex-col items-center gap-4 px-6 text-center transition-all duration-700 ${
+        className={`relative flex w-full max-w-[36rem] flex-col items-center gap-3 text-center transition-all duration-700 sm:gap-4 ${
           visible ? "translate-y-0 scale-100" : "translate-y-4 scale-[0.97]"
         }`}
       >
-        <p
-          className={`font-sans text-[clamp(3rem,12vw,6.5rem)] font-bold leading-none tracking-[-0.07em] text-zinc-900 motion-safe:animate-[splash-rise_0.7s_ease-out] ${
-            phase !== "hello" ? "opacity-100" : "opacity-100"
-          }`}
-        >
+        <p className="font-sans text-[clamp(2.5rem,14vw,6.5rem)] font-bold leading-none tracking-[-0.07em] text-zinc-900 motion-safe:animate-[splash-rise_0.7s_ease-out]">
           {hello}
           {phase === "hello" && (
             <span className="ml-1 inline-block h-[0.85em] w-[0.08em] translate-y-[0.06em] bg-zinc-900 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
           )}
         </p>
 
-        <p className="min-h-[1.25rem] font-mono text-[clamp(10px,2.4vw,13px)] tracking-[0.28em] text-zinc-600 uppercase">
+        <p className="min-h-[1.25rem] max-w-full break-words font-mono text-[clamp(9px,2.8vw,13px)] tracking-[0.14em] text-zinc-600 uppercase sm:tracking-[0.28em]">
           {welcome}
           {phase === "welcome" && (
-            <span className="ml-1 inline-block h-[0.9em] w-[0.45em] translate-y-[0.05em] bg-[#C8643B]/80 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
+            <span className="ml-1 inline-block h-[0.9em] w-[0.45em] translate-y-[0.05em] bg-[#FF6B4A]/90 align-middle motion-safe:animate-[caret-blink_0.9s_steps(1)_infinite]" />
           )}
         </p>
 
         <span
-          className={`mt-6 h-px bg-zinc-900/30 transition-all duration-700 ease-out ${
-            phase === "hold" ? "w-20 opacity-100" : "w-0 opacity-0"
+          className={`mt-4 h-px bg-[#152033]/30 transition-all duration-700 ease-out sm:mt-6 ${
+            phase === "hold" ? "w-16 opacity-100 sm:w-20" : "w-0 opacity-0"
           }`}
           aria-hidden
         />
@@ -141,7 +137,6 @@ export function DrawHint({ visible, onDismiss }: HintProps) {
       setShown(false);
       return;
     }
-    // Enter on next frame so the fade-in runs.
     const enter = requestAnimationFrame(() => setShown(true));
     const auto = window.setTimeout(() => {
       setShown(false);
@@ -162,7 +157,7 @@ export function DrawHint({ visible, onDismiss }: HintProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-40 flex items-center justify-center px-6 transition-opacity duration-500 ease-out ${
+      className={`fixed inset-0 z-40 flex items-center justify-center px-4 py-8 transition-opacity duration-500 ease-out sm:px-6 ${
         shown ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       role="dialog"
@@ -172,38 +167,38 @@ export function DrawHint({ visible, onDismiss }: HintProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-[#2A1D14]/35 backdrop-blur-md"
+        className="absolute inset-0 cursor-default bg-[#152033]/40 backdrop-blur-md"
         aria-label="Dismiss hint"
         onClick={close}
       />
 
       <div
-        className={`relative z-10 flex max-w-[28rem] flex-col items-center text-center transition-all duration-500 ease-out ${
+        className={`relative z-10 flex w-full max-w-[28rem] flex-col items-center px-2 text-center transition-all duration-500 ease-out sm:px-0 ${
           shown ? "translate-y-0 scale-100" : "translate-y-3 scale-[0.98]"
         }`}
       >
         <button
           type="button"
           onClick={close}
-          className="absolute -top-10 right-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/10 font-mono text-lg leading-none text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20"
+          className="absolute -top-2 right-0 flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 font-mono text-xl leading-none text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20 sm:-top-10 sm:h-9 sm:w-9 sm:text-lg touch-manipulation"
           aria-label="Close"
         >
           ×
         </button>
 
-        <span className="relative mb-5 block h-3.5 w-3.5" aria-hidden>
-          <span className="absolute inset-0 rounded-full border border-[#C8643B] motion-safe:animate-ping" />
-          <span className="absolute inset-[4px] rounded-full bg-[#C8643B]" />
+        <span className="relative mb-4 block h-3.5 w-3.5 sm:mb-5" aria-hidden>
+          <span className="absolute inset-0 rounded-full border border-[#FF6B4A] motion-safe:animate-ping" />
+          <span className="absolute inset-[4px] rounded-full bg-[#FF6B4A]" />
         </span>
 
-        <p className="font-sans text-[clamp(1.4rem,4vw,2rem)] font-bold tracking-[-0.04em] text-white">
+        <p className="font-sans text-[clamp(1.25rem,5.5vw,2rem)] font-bold tracking-[-0.04em] text-white">
           Drag to turn the page
         </p>
-        <p className="mt-3 max-w-[22rem] font-mono text-[11px] leading-relaxed tracking-[0.06em] text-white/75">
+        <p className="mt-3 max-w-[22rem] font-mono text-[10px] leading-relaxed tracking-[0.04em] text-white/75 sm:text-[11px] sm:tracking-[0.06em]">
           Paint anywhere — Side A flips into the night chart. Typography and orbits only appear
           where your ink lands.
         </p>
-        <p className="mt-6 font-mono text-[9px] tracking-[0.22em] text-white/45 uppercase">
+        <p className="mt-5 font-mono text-[8px] tracking-[0.18em] text-white/45 uppercase sm:mt-6 sm:text-[9px] sm:tracking-[0.22em]">
           closes in 3s · or tap ×
         </p>
       </div>

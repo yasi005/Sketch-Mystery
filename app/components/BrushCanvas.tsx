@@ -36,24 +36,24 @@ type Swatch = {
   nm: string;
 };
 
+// Mineral inks — deep enough for Side B to read, far apart in hue so the
+// dock feels like a pigment tray, not eight near-blacks.
 const SWATCHES: Swatch[] = [
-  { id: "SPEC-01", name: "Abyssal", hex: "#080808", nm: "420nm" },
-  { id: "SPEC-02", name: "Stygian", hex: "#0A1628", nm: "468nm" },
-  { id: "SPEC-03", name: "Obsidian", hex: "#0D1A12", nm: "520nm" },
-  { id: "SPEC-04", name: "Carbon", hex: "#1A1C1E", nm: "555nm" },
-  { id: "SPEC-05", name: "Oxblood", hex: "#3D0F14", nm: "640nm" },
-  { id: "SPEC-06", name: "Eclipse", hex: "#1A0F1E", nm: "390nm" },
-  { id: "SPEC-07", name: "Peat", hex: "#2A1810", nm: "610nm" },
-  { id: "SPEC-08", name: "Monolith", hex: "#2C3034", nm: "480nm" },
+  { id: "SPEC-01", name: "Graphite", hex: "#14161C", nm: "555nm" },
+  { id: "SPEC-02", name: "Lapis", hex: "#0F2A6B", nm: "470nm" },
+  { id: "SPEC-03", name: "Viridian", hex: "#0C3D36", nm: "510nm" },
+  { id: "SPEC-04", name: "Carmine", hex: "#6E1230", nm: "650nm" },
+  { id: "SPEC-05", name: "Amethyst", hex: "#2B0F5C", nm: "400nm" },
+  { id: "SPEC-06", name: "Amber", hex: "#5C2E0A", nm: "590nm" },
+  { id: "SPEC-07", name: "Cerulean", hex: "#0A3D5C", nm: "490nm" },
+  { id: "SPEC-08", name: "Magenta", hex: "#4A1040", nm: "380nm" },
 ];
 
-// Side A of the reversible page: a sunlit day chart printed on cream.
-// It sits under the ink, so every stroke turns the page inside out onto
-// Side B (the night atlas in RevealLayer), which is printed in the paper
-// colour itself and so only shows where ink darkens the ground.
-const PAPER = "#EFE9DD";
-const SEPIA = "#2A1D14";
-const TERRA = "#C8643B";
+// Side A: cool chalk paper + navy chart + coral signal accent.
+// Ink turns the page inside out onto Side B (night atlas in paper colour).
+const PAPER = "#E6EDF2";
+const SEPIA = "#152033";
+const TERRA = "#FF6B4A";
 
 function FrontSide() {
   return (
@@ -69,7 +69,7 @@ function FrontSide() {
             <line key={i} x1={120 * (i + 1)} y1="0" x2={120 * (i + 1)} y2="900" />
           ))}
         </g>
-        <circle cx="1060" cy="330" r="190" fill="#E9BC8E" />
+        <circle cx="1060" cy="330" r="190" fill="#B8D4E8" />
         <g stroke={TERRA} strokeWidth="0.8" opacity="0.6">
           <circle cx="1060" cy="330" r="150" />
           <circle cx="1060" cy="330" r="110" strokeDasharray="2 5" />
@@ -105,13 +105,13 @@ function FrontSide() {
           <text x="1210" y="140">SIDE A</text>
         </g>
       </svg>
-      <div className="absolute top-[17%] left-7 md:left-10">
-        <p className="font-sans text-[clamp(2.2rem,6.5vw,5.5rem)] leading-[0.88] font-bold tracking-[-0.06em]">
+      <div className="absolute top-[12%] left-4 right-4 sm:top-[15%] sm:left-7 sm:right-auto md:top-[17%] md:left-10">
+        <p className="font-sans text-[clamp(1.85rem,10vw,5.5rem)] leading-[0.88] font-bold tracking-[-0.06em]">
           LUMEN
           <br />
           <span style={{ color: TERRA }}>ATLAS</span>
         </p>
-        <p className="mt-4 max-w-[17rem] font-mono text-[10px] leading-relaxed tracking-[0.08em] uppercase opacity-70">
+        <p className="mt-3 max-w-[15rem] font-mono text-[9px] leading-relaxed tracking-[0.06em] uppercase opacity-70 sm:mt-4 sm:max-w-[17rem] sm:text-[10px] sm:tracking-[0.08em]">
           Side A — the daylight edition. A reversible page: paint over it to wear it inside out.
         </p>
       </div>
@@ -584,7 +584,11 @@ export default function BrushCanvas() {
   }, [splash]);
 
   return (
-    <div ref={rootRef} className="fixed inset-0 overflow-hidden select-none" style={{ backgroundColor: PAPER }}>
+    <div
+      ref={rootRef}
+      className="app-stage fixed inset-0 overflow-hidden select-none"
+      style={{ backgroundColor: PAPER }}
+    >
       <WelcomeSplash visible={splash} />
 
       <svg className="absolute h-0 w-0" aria-hidden>
@@ -609,7 +613,7 @@ export default function BrushCanvas() {
 
       {/* Stamped once the page has finished brushing itself in. */}
       <p
-        className={`pointer-events-none absolute top-[72%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-3 py-1 font-mono text-[10px] tracking-[0.3em] text-white transition-all delay-300 duration-700 ${
+        className={`pointer-events-none absolute top-[58%] left-1/2 z-10 -translate-x-1/2 rotate-[-4deg] border border-white/80 px-2.5 py-1 font-mono text-[9px] tracking-[0.22em] text-white transition-all delay-300 duration-700 sm:top-[66%] sm:px-3 sm:text-[10px] sm:tracking-[0.3em] md:top-[72%] ${
           revealed >= 100 ? "scale-100 opacity-100" : "scale-125 opacity-0"
         }`}
         aria-live="polite"
@@ -617,16 +621,19 @@ export default function BrushCanvas() {
         {revealed >= 100 ? "ATLAS COMPLETE" : ""}
       </p>
 
-      <header className="pointer-events-none absolute top-7 left-7 z-10 md:top-9 md:left-10">
-        <h1 className={`font-sans text-[clamp(1.05rem,2.2vw,1.55rem)] font-bold tracking-[-0.04em] transition-colors duration-[1400ms] ${
+      <header className="pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] z-10 sm:top-[max(1.75rem,env(safe-area-inset-top))] sm:left-[max(1.75rem,env(safe-area-inset-left))] md:top-[max(2.25rem,env(safe-area-inset-top))] md:left-[max(2.5rem,env(safe-area-inset-left))]">
+        <h1
+          className={`font-sans text-[clamp(0.95rem,3.6vw,1.55rem)] font-bold tracking-[-0.04em] transition-colors duration-[1400ms] ${
             revealed >= COMPLETE_AT ? "text-white" : "text-zinc-900"
-          }`}>
+          }`}
+        >
           EXPLORE THE SPACE
         </h1>
       </header>
 
+      {/* Mobile: top-right under header so it never sits on the dock. */}
       <div
-        className={`pointer-events-none absolute right-6 bottom-6 z-10 font-mono text-[9px] leading-relaxed tracking-wider transition-colors duration-[1400ms] md:right-10 md:bottom-8 ${
+        className={`pointer-events-none absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] z-10 text-right font-mono text-[8px] leading-relaxed tracking-wider transition-colors duration-[1400ms] sm:text-[9px] md:top-auto md:right-[max(2.5rem,env(safe-area-inset-right))] md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:text-left ${
           revealed >= COMPLETE_AT ? "text-white/70" : "text-zinc-500"
         }`}
         aria-live="polite"
@@ -635,28 +642,32 @@ export default function BrushCanvas() {
         <p>REVEALED: {revealed.toFixed(1)}%</p>
       </div>
 
-      <div className="absolute bottom-7 left-1/2 z-20 w-[min(92vw,420px)] -translate-x-1/2 md:bottom-9">
-        <div className="rounded-sm border border-zinc-900/10 bg-white/55 px-3 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-md">
-          <div className="flex items-end justify-between gap-1.5">
+      <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-20 w-[min(96vw,420px)] -translate-x-1/2 px-1 sm:bottom-[max(1.75rem,env(safe-area-inset-bottom))] sm:w-[min(92vw,420px)] md:bottom-[max(2.25rem,env(safe-area-inset-bottom))]">
+        <div className="rounded-sm border border-zinc-900/10 bg-white/55 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-3 sm:py-2.5">
+          <div className="flex items-end justify-between gap-0.5 sm:gap-1.5">
             {SWATCHES.map((swatch) => {
               const active = swatch.id === activeId;
+              const shortId = swatch.id.replace("SPEC-", "");
               return (
                 <button
                   key={swatch.id}
                   type="button"
                   onClick={() => setActiveId(swatch.id)}
-                  className="group flex flex-1 flex-col items-center gap-1.5 outline-none"
+                  className="group flex min-h-11 flex-1 flex-col items-center justify-end gap-1 outline-none touch-manipulation sm:min-h-0 sm:gap-1.5"
                   aria-label={`${swatch.name} ${swatch.hex}`}
                   aria-pressed={active}
                 >
                   <span
-                    className={`block w-[10px] rounded-[1px] transition-transform duration-200 ${
-                      active ? "-translate-y-0.5 h-9 ring-1 ring-zinc-900/40" : "h-7"
+                    className={`block w-2 rounded-[1px] transition-transform duration-200 sm:w-[10px] ${
+                      active ? "-translate-y-0.5 h-8 ring-1 ring-zinc-900/40 sm:h-9" : "h-6 sm:h-7"
                     }`}
                     style={{ backgroundColor: swatch.hex }}
                   />
-                  <span className="flex flex-col items-center font-mono text-[7px] leading-tight tracking-wide text-zinc-500">
-                    <span className={active ? "text-zinc-800" : ""}>{swatch.id}</span>
+                  <span className="flex flex-col items-center font-mono text-[6px] leading-tight tracking-wide text-zinc-500 sm:text-[7px]">
+                    <span className={active ? "text-zinc-800" : ""}>
+                      <span className="sm:hidden">{shortId}</span>
+                      <span className="hidden sm:inline">{swatch.id}</span>
+                    </span>
                     <span className="hidden sm:inline">{swatch.hex}</span>
                     <span className="hidden md:inline">{swatch.nm}</span>
                   </span>
@@ -665,14 +676,15 @@ export default function BrushCanvas() {
             })}
           </div>
         </div>
-        <p className="mt-2 text-center font-mono text-[9px] tracking-wide text-zinc-400">
-          drag · C clear · D peek · 1–8 ink
+        <p className="mt-1.5 text-center font-mono text-[8px] tracking-wide text-zinc-400 sm:mt-2 sm:text-[9px]">
+          <span className="sm:hidden">drag · C clear · D peek</span>
+          <span className="hidden sm:inline">drag · C clear · D peek · 1–8 ink</span>
         </p>
       </div>
 
       <div
         ref={cursorRef}
-        className="pointer-events-none absolute top-0 left-0 z-30 rounded-full border border-zinc-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform"
+        className="pointer-events-none absolute top-0 left-0 z-30 hidden rounded-full border border-zinc-900 opacity-0 shadow-[0_0_0_1px_rgba(255,255,255,0.8)] transition-opacity duration-150 will-change-transform md:block"
         aria-hidden
       />
     </div>

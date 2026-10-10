@@ -16,6 +16,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Full-bleed stage; chrome uses safe-area utilities, canvas stays edge-to-edge */
+.app-stage {
+  width: 100dvw;
+  height: 100dvh;
+  max-width: 100%;
 }
 
 @keyframes caret-blink {
